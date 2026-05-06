@@ -236,7 +236,7 @@ async def handle_voice_websocket(websocket: WebSocket) -> None:
                 )
             except Exception as e:
                 # Send the exact STT failure reason to the UI so the user can see it!
-                await websocket.send_json({"type": "error", "message": f"Sarvam STT connection failed: {e}"})
+                await websocket.send_json({"type": "error", "message": f"Sarvam STT connection failed: {repr(e)}"})
                 break
             finally:
 
