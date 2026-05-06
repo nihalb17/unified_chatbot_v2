@@ -211,8 +211,8 @@ async def collect_utterance_transcript(
                     await recv_task
                 except asyncio.CancelledError:
                     pass
-    except Exception:
+    except Exception as e:
         logger.exception("STT session failed")
-        return ""
+        raise e
 
     return state["transcript"].strip()

@@ -234,7 +234,12 @@ async def handle_voice_websocket(websocket: WebSocket) -> None:
                     use_server_vad=False,
                     on_transcript=_on_transcript,
                 )
+            except Exception as e:
+                # Send the exact STT failure reason to the UI so the user can see it!
+                await websocket.send_json({"type": "error", "message": f"Sarvam STT connection failed: {e}"})
+                break
             finally:
+
                 listen_task.cancel()
                 try:
                     await listen_task
