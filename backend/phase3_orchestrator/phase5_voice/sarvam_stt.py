@@ -193,6 +193,7 @@ async def collect_utterance_transcript(
             max_size=None,
             ping_interval=20,
             ping_timeout=20,
+            open_timeout=60.0,
         ) as ws:
             recv_task = asyncio.create_task(receiver(ws))
             send_task = asyncio.create_task(sender(ws))
