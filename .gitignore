@@ -1,0 +1,50 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Dependency directories
+node_modules/
+
+# Next.js build output
+frontend/internal_dashboard/.next/
+frontend/internal_dashboard/out/
+
+# Vite build output
+frontend/user_portal/dist/
+frontend/user_portal/build/
+
+# Local data / DBs
+backend/data/*.json
+backend/phase2_factsheet_rag/chroma_db/
+backend/phase3_orchestrator/config/
+backend/phase3_orchestrator/meetings_log.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# MacOS
+.DS_Store
+
+# AI coding assistant
+.qoder/
+.gemini/
+
+# Credentials
+client_secret.json
+token.json
+generate_token.py

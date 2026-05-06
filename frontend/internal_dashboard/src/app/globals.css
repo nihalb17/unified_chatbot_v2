@@ -1,0 +1,42 @@
+@import "@fontsource-variable/inter";
+@import "tailwindcss";
+
+:root {
+  --background: #000000;
+  --foreground: #ffffff;
+  --neon-green: #22c55e; 
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Inter Variable', system-ui, sans-serif;
+}
+
+@layer utilities {
+  .bg-grid-pattern {
+    background-image: 
+      linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 80px 80px;
+    background-position: center center;
+  }
+  
+  .text-neon-green {
+    color: var(--neon-green);
+  }
+  
+  .bg-neon-green {
+    background-color: var(--neon-green);
+  }
+  
+  .border-neon-green {
+    border-color: var(--neon-green);
+  }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.01);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+  }
+}

@@ -1,0 +1,41 @@
+# Phase 6 — Triggers factsheet-only re-indexing (not definitions), same as dashboard:
+# POST /api/faqs/factsheets/refresh
+#
+# Required repo secret: SCHEDULER_PHASE2_URL
+#   Example: https://your-phase2-service.onrender.com  (no path; trailing slash optional)
+#
+# Manual run: Actions → this workflow → Run workflow
+
+name: Schedule — Factsheet RAG refresh
+
+on:
+  schedule:
+    # Daily: 04:05 UTC (adjust as needed)
+    - cron: "5 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: schedule-factsheet-rag
+  cancel-in-progress: false
+
+jobs:
+  trigger-factsheet-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /api/faqs/factsheets/refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ secrets.SCHEDULER_PHASE2_URL }}"
+          if [ -z "$BASE" ]; then
+            echo "::error::Repository secret SCHEDULER_PHASE2_URL is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          BASE="${BASE%/}"
+          echo "Triggering Phase 2 factsheet refresh at ${BASE}/api/faqs/factsheets/refresh"
+          curl -sS -f -X POST "$BASE/api/faqs/factsheets/refresh" \
+            -H "Accept: application/json" \
+            -w "\nHTTP %{http_code}\n"

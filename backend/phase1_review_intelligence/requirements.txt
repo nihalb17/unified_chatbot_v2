@@ -1,0 +1,9 @@
+google-play-scraper
+app-store-scraper
+groq
+google-generativeai
+python-dotenv
+pydantic
+fastapi
+uvicorn
+pandas

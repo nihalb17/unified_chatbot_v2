@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+websockets>=12.0
+python-dotenv
+groq
+langgraph
+langchain-core
+requests
+pydantic
+google-api-python-client
+google-auth

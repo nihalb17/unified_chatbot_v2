@@ -1,0 +1,41 @@
+# Phase 6 — Triggers the same Phase 1 pipeline as the internal dashboard:
+# POST /api/reviews/refresh
+#
+# Required repo secret: SCHEDULER_PHASE1_URL
+#   Example: https://your-phase1-service.onrender.com  (no path; trailing slash optional)
+#
+# Manual run: Actions → this workflow → Run workflow
+
+name: Schedule — Review intelligence refresh
+
+on:
+  schedule:
+    # Weekly: Sundays 03:15 UTC (adjust as needed)
+    - cron: "15 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: schedule-review-intelligence
+  cancel-in-progress: false
+
+jobs:
+  trigger-review-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /api/reviews/refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ secrets.SCHEDULER_PHASE1_URL }}"
+          if [ -z "$BASE" ]; then
+            echo "::error::Repository secret SCHEDULER_PHASE1_URL is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          BASE="${BASE%/}"
+          echo "Triggering Phase 1 refresh at ${BASE}/api/reviews/refresh"
+          curl -sS -f -X POST "$BASE/api/reviews/refresh" \
+            -H "Accept: application/json" \
+            -w "\nHTTP %{http_code}\n"
