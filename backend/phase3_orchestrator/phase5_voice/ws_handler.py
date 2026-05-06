@@ -193,6 +193,7 @@ async def handle_voice_websocket(websocket: WebSocket) -> None:
         if hangup.is_set():
             raise VoiceStop()
 
+        retry_count = 0
         while not hangup.is_set():
             _drain_stale_mic_commands(cmd_q)
             await websocket.send_json({"type": "phase", "phase": "listening"})
@@ -236,6 +237,18 @@ async def handle_voice_websocket(websocket: WebSocket) -> None:
                 break
 
             if not (user_text or "").strip():
+                retry_count += 1
+                if retry_count >= 3:
+                    await stop_pump()
+                    await stream_tts_utterance(
+                        websocket,
+                        api_key,
+                        "I'm having trouble hearing you. Let's stick to the chat for a moment, or try clicking the microphone again.",
+                        hangup,
+                        stream=cfg.get("ui_streaming_enabled", True),
+                    )
+                    break # Exit the loop and end the voice session gracefully
+
                 await stop_pump()
                 await asyncio.sleep(0.5)
                 ok = await stream_tts_utterance(
@@ -251,6 +264,8 @@ async def handle_voice_websocket(websocket: WebSocket) -> None:
                 await websocket.send_json({"type": "tts_done"})
                 await asyncio.sleep(0.5)
                 continue
+
+            retry_count = 0 # Reset on success
 
             await websocket.send_json(
                 {"type": "user_transcript", "text": user_text.strip()}
