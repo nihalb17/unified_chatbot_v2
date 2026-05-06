@@ -91,6 +91,8 @@ async def _consume_listen_pcm(
             m = await cmd_q.get()
             t = m.get("type")
             if t == "recording_start":
+                # Signal the main loop that recording has started
+                await pcm_queue.put(b"START")
                 break
             if t == "utterance_end":
                 await pcm_queue.put(None)
@@ -100,7 +102,9 @@ async def _consume_listen_pcm(
                 return
             if t == "pcm_chunk":
                 continue
+        
         while not hangup.is_set():
+
             m = await cmd_q.get()
             t = m.get("type")
             if t == "pcm_chunk":
@@ -202,6 +206,16 @@ async def handle_voice_websocket(websocket: WebSocket) -> None:
                 _consume_listen_pcm(cmd_q, pcm_queue, hangup)
             )
 
+            # Wait until the user clicks the microphone (or disconnects)
+            try:
+                first_signal = await pcm_queue.get()
+                if first_signal is None or hangup.is_set():
+                    # Utterance ended before it started or user disconnected
+                    listen_task.cancel()
+                    continue
+            except asyncio.CancelledError:
+                break
+
             async def _on_transcript(text: str) -> None:
                 if text.strip():
                     await websocket.send_json(
@@ -232,6 +246,7 @@ async def handle_voice_websocket(websocket: WebSocket) -> None:
                         pcm_queue.get_nowait()
                     except asyncio.QueueEmpty:
                         break
+
 
             if hangup.is_set():
                 break
