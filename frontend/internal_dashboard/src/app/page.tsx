@@ -98,7 +98,9 @@ export default function ReviewPulse() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [startStatusPolling]); // Added startStatusPolling to dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
+
 
   const handleRefresh = async () => {
     if (pipelineRunning) return;
