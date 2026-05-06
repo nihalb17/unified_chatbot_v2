@@ -24,7 +24,7 @@ interface Theme {
   total_mentions: number;
   playstore_mentions: number;
   appstore_mentions: number;
-  representative_quotes: any[];
+  representative_quotes: (string | { text: string; source: string })[];
   actionable_item: string;
 }
 
@@ -96,7 +96,7 @@ export default function ReviewPulse() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, []);
+  }, [startStatusPolling]); // Added startStatusPolling to dependencies
 
   const handleRefresh = async () => {
     if (pipelineRunning) return;
@@ -425,7 +425,7 @@ function ReviewDrawer({ theme, onClose }: { theme: Theme, onClose: () => void })
                 <div key={idx} className="bg-[#181a20] border border-white/5 p-5 rounded-xl relative overflow-hidden group">
                   <span className="font-serif text-6xl leading-none absolute top-4 right-4 text-white/5 select-none">”</span>
                   <p className="text-white/90 font-medium leading-relaxed mb-4 relative z-10 pr-8 text-[13px]">
-                    "{text}"
+                    &ldquo;{text}&rdquo;
                   </p>
                   <div className="text-[9px] uppercase tracking-widest font-bold text-white/30">
                     REVIEW #{idx + 1} - {source}
