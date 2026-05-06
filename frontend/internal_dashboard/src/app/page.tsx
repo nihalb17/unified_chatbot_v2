@@ -37,6 +37,8 @@ interface Metadata {
   };
 }
 
+const API_BASE = process.env.NEXT_PUBLIC_PHASE1_URL || "http://localhost:8000";
+
 export default function ReviewPulse() {
   const [data, setData] = useState<{ themes: Theme[], refresh_metadata: Metadata | null } | null>(null);
   const [loading, setLoading] = useState(true);
