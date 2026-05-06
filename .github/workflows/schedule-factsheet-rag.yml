@@ -10,8 +10,8 @@ name: Schedule — Factsheet RAG refresh
 
 on:
   schedule:
-    # Daily: 04:05 UTC (adjust as needed)
-    - cron: "5 4 * * *"
+    # Daily: 13:00 IST (07:30 UTC)
+    - cron: "30 7 * * *"
   workflow_dispatch:
 
 permissions:
