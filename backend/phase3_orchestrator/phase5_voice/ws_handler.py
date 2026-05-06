@@ -5,6 +5,7 @@ import base64
 import logging
 import random
 import time
+import traceback
 from typing import Any, Optional
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -236,7 +237,9 @@ async def handle_voice_websocket(websocket: WebSocket) -> None:
                 )
             except Exception as e:
                 # Send the exact STT failure reason to the UI so the user can see it!
-                await websocket.send_json({"type": "error", "message": f"Sarvam STT connection failed: {repr(e)}"})
+                err_tb = traceback.format_exc()
+                logger.error(f"Voice loop crashed: {err_tb}")
+                await websocket.send_json({"type": "error", "message": f"Traceback:\n{err_tb}"})
                 break
             finally:
 
