@@ -92,7 +92,7 @@ async def collect_utterance_transcript(
                         else 2.0
                     )
                     raw = await asyncio.wait_for(ws.recv(), timeout=recv_to)
-                except TimeoutError:
+                except asyncio.TimeoutError:
                     if state["utterance_closed"]:
                         logger.debug("STT: no more server messages after flush; finishing")
                         break
@@ -150,7 +150,7 @@ async def collect_utterance_transcript(
             while not hangup.is_set() and not done.is_set():
                 try:
                     chunk = await asyncio.wait_for(pcm_queue.get(), timeout=0.2)
-                except TimeoutError:
+                except asyncio.TimeoutError:
                     continue
                 if chunk is None:
                     logger.debug("STT: client signaled utterance end, sending flush")
@@ -199,7 +199,7 @@ async def collect_utterance_transcript(
             send_task = asyncio.create_task(sender(ws))
             try:
                 await asyncio.wait_for(done.wait(), timeout=_STT_UTTERANCE_DEADLINE_S)
-            except TimeoutError:
+            except asyncio.TimeoutError:
                 logger.warning("STT: timed out waiting for transcript")
             finally:
                 send_task.cancel()
