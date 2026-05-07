@@ -34,7 +34,7 @@ def run_pipeline():
     print(f"[Stage 3/5] Discovered {len(themes)} themes: {theme_list}")
     
     # [Stage 4/5] Classification & Tagging
-    print("[Stage 4/5] Classifying and tagging 500 reviews (this may take a minute)...")
+    print(f"[Stage 4/5] Classifying and tagging {len(cleansed_reviews)} reviews (this may take a minute)...")
     classified_data = classify_and_tag(all_reviews, themes)
     
     # [Stage 5/5] Aggregate & Persist
