@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 from analyzer import Theme
 from dotenv import load_dotenv
@@ -40,9 +40,9 @@ def aggregate_results(classified_reviews: List[Dict[str, Any]], themes: List[The
         })
         batch_data.append({"name": theme.theme_name, "quotes": representative_quotes})
 
-    # 2. Assign actionable items using Gemini
-    import urllib.request
-    api_key = os.getenv("GEMINI_API_KEY_PHASE1_CLASS_1")
+    # 2. Assign actionable items using Groq
+    from groq import Groq
+    api_key = os.getenv("GROQ_API_KEY_THEME_GENERATION")
     if api_key and theme_stats:
         print("[Stage 5/5] Generating intelligent actionable items for themes...")
         
@@ -54,28 +54,21 @@ def aggregate_results(classified_reviews: List[Dict[str, Any]], themes: List[The
                 prompt += f"- {q['text']}\n"
             prompt += "\n"
             
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"response_mime_type": "application/json"}
-        }
-        
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-        req = urllib.request.Request(
-            url, 
-            data=json.dumps(payload).encode('utf-8'), 
-            headers={'Content-Type': 'application/json'}
-        )
-        
         try:
-            with urllib.request.urlopen(req) as response:
-                res_body = response.read()
-                res_json = json.loads(res_body)
-                content_text = res_json['candidates'][0]['content']['parts'][0]['text']
-                actionable_items = json.loads(content_text)
-                
-                for stats in theme_stats:
-                    if stats['theme_name'] in actionable_items:
-                        stats['actionable_item'] = actionable_items[stats['theme_name']]
+            client = Groq(api_key=api_key)
+            chat_completion = client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama-3.3-70b-versatile",
+                response_format={"type": "json_object"},
+                temperature=0.2
+            )
+            
+            content_text = chat_completion.choices[0].message.content
+            actionable_items = json.loads(content_text)
+            
+            for stats in theme_stats:
+                if stats['theme_name'] in actionable_items:
+                    stats['actionable_item'] = actionable_items[stats['theme_name']]
         except Exception as e:
             print(f"Failed to generate actionable items: {e}")
             for stats in theme_stats:
@@ -86,7 +79,7 @@ def aggregate_results(classified_reviews: List[Dict[str, Any]], themes: List[The
 
     return {
         "refresh_metadata": {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "total_reviews_processed": total_processed,
             "source_breakdown": {"playstore": play_count, "appstore": app_count}
         },
