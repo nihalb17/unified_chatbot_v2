@@ -61,6 +61,18 @@ class SendBookingDetailsRequest(BaseModel):
 # Endpoints                                                            #
 # ================================================================== #
 
+@app.get("/")
+def root():
+    """Root endpoint for Render health checks and service info."""
+    return {
+        "message": "Phase 3 — Orchestrator Agent API is running.",
+        "endpoints": {
+            "chat": "/api/chat",
+            "health": "/api/health",
+            "status": "/api/system/status"
+        }
+    }
+
 @app.post("/api/chat")
 def chat_endpoint(request: ChatRequest):
     """
