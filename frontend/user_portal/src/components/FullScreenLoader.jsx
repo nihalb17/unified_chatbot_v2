@@ -193,10 +193,18 @@ export default function FullScreenLoader({ onComplete }) {
 
         const {
           has_data, is_running,
+          cache_initialized,
           phase1_ready, phase1_running,
           factsheets_ready, factsheets_running,
           definitions_ready, definitions_running,
         } = s;
+
+        // ⏳ Backend cache not ready yet — wait silently
+        if (!cache_initialized) {
+          setStep(0);
+          setStatusText("Checking cluster status...");
+          return;
+        }
 
         // ✅ All done
         if (has_data && !is_running) {

@@ -145,6 +145,7 @@ print(f"[SystemProxy] Phase2 base: {PHASE2_BASE}")
 
 # In-memory cache — updated every 20s by the background loop
 _status_cache: dict = {
+    "cache_initialized": False,  # False until background loop completes first check
     "has_data": False,
     "is_running": False,
     "phase1_ready": False,
@@ -215,6 +216,7 @@ async def _update_status_cache():
         and merged["factsheets_ready"]
         and merged["definitions_ready"]
     )
+    merged["cache_initialized"] = True  # Mark that at least one real check has completed
     _status_cache = merged
     print(f"[SystemStatus] Cache updated: {merged}")
 

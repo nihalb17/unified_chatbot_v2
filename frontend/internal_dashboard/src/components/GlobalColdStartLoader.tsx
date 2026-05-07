@@ -4,8 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Sparkles, Server, CheckCircle2, RefreshCw, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const PHASE1_URL = process.env.NEXT_PUBLIC_PHASE1_URL || "http://localhost:8000";
-const PHASE2_URL = process.env.NEXT_PUBLIC_PHASE2_URL || "http://localhost:8001";
+const PHASE3_URL = (process.env.NEXT_PUBLIC_PHASE3_URL || "http://localhost:8002").replace(/\/$/, "");
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 10000): Promise<Response> {
   const controller = new AbortController();
@@ -40,18 +39,24 @@ export default function GlobalColdStartLoader({ children }: { children: React.Re
 
     const checkStatus = async () => {
       try {
-        // Use the Phase 3 proxy status endpoint which aggregates everything
-        const res = await fetchWithTimeout(`${PHASE1_URL.replace(':8000', ':8002')}/api/system/status`);
+        // Use Phase 3 proxy status endpoint — always responds instantly from cache
+        const res = await fetchWithTimeout(`${PHASE3_URL}/api/system/status`);
         if (!res.ok) return;
         const s = await res.json();
 
         const {
+          cache_initialized,
           has_data,
           is_running,
           phase1_ready, phase1_running,
           factsheets_ready, factsheets_running,
           definitions_ready, definitions_running,
         } = s;
+
+        // ⏳ Backend cache not ready yet — wait silently
+        if (!cache_initialized) {
+          return;
+        }
 
         // ✅ Everything is done — dismiss loader
         if (has_data && !is_running) {
@@ -65,7 +70,7 @@ export default function GlobalColdStartLoader({ children }: { children: React.Re
           hasTriggeredInitialRef.current = true;
           setStep(1);
           setStatusText("Waking up AI agents...");
-          fetchWithTimeout(`${PHASE1_URL.replace(':8000', ':8002')}/api/system/refresh`, { method: "POST" }).catch(() => {});
+          fetchWithTimeout(`${PHASE3_URL}/api/system/refresh`, { method: "POST" }).catch(() => {});
           return;
         }
 
@@ -92,7 +97,7 @@ export default function GlobalColdStartLoader({ children }: { children: React.Re
             setStatusText("Preparing to index definitions...");
           } else if (Date.now() - factsheetsDoneTimestampRef.current >= 15000) {
             hasTriggeredDefinitionsRef.current = true;
-            fetchWithTimeout(`${PHASE1_URL.replace(':8000', ':8002')}/api/system/refresh/definitions`, { method: "POST" }).catch(() => {});
+            fetchWithTimeout(`${PHASE3_URL}/api/system/refresh/definitions`, { method: "POST" }).catch(() => {});
             setStep(4);
             setStatusText("Indexing definition embeddings...");
           }
