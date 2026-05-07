@@ -121,42 +121,41 @@ PHASE2_BASE = os.getenv("PHASE2_URL", "http://127.0.0.1:8001").rstrip("/")
 def get_system_status():
     """Pings Phase 1 and Phase 2 to determine if data exists and if pipelines are running."""
     status = {
-        "has_data": True,
+        "has_data": False,
         "is_running": False,
+        "phase1_ready": False,
+        "phase1_running": False,
+        "factsheets_ready": False,
         "factsheets_running": False,
+        "definitions_ready": False,
         "definitions_running": False,
-        "phase1_running": False
     }
     
     # Check Phase 1 (Reviews)
     try:
-        r1 = requests.get(f"{PHASE1_BASE}/api/reviews/themes", timeout=5)
+        r1 = requests.get(f"{PHASE1_BASE}/api/reviews/themes", timeout=8)
         if r1.status_code == 200:
             themes = r1.json().get("themes", [])
-            if not themes:
-                status["has_data"] = False
-        else:
-            status["has_data"] = False
+            status["phase1_ready"] = len(themes) > 0
             
-        r1_status = requests.get(f"{PHASE1_BASE}/api/reviews/status", timeout=5)
+        r1_status = requests.get(f"{PHASE1_BASE}/api/reviews/status", timeout=8)
         if r1_status.status_code == 200:
             if r1_status.json().get("running"):
                 status["is_running"] = True
                 status["phase1_running"] = True
     except Exception as e:
-        status["has_data"] = False
+        print(f"[SystemStatus] Phase 1 check error: {e}")
 
     # Check Phase 2 (Factsheets & Definitions)
     try:
-        r2 = requests.get(f"{PHASE2_BASE}/api/faqs/status", timeout=5)
+        r2 = requests.get(f"{PHASE2_BASE}/api/faqs/status", timeout=8)
         if r2.status_code == 200:
             data = r2.json()
             fs = data.get("factsheets", {})
             df = data.get("definitions", {})
             
-            # If either lacks a last_refreshed timestamp, we don't have full data
-            if not fs.get("last_refreshed") or not df.get("last_refreshed"):
-                status["has_data"] = False
+            status["factsheets_ready"] = bool(fs.get("last_refreshed"))
+            status["definitions_ready"] = bool(df.get("last_refreshed"))
                 
             if fs.get("running"):
                 status["is_running"] = True
@@ -166,9 +165,16 @@ def get_system_status():
                 status["is_running"] = True
                 status["definitions_running"] = True
         else:
-            status["has_data"] = False
+            print(f"[SystemStatus] Phase 2 returned HTTP {r2.status_code}")
     except Exception as e:
-        status["has_data"] = False
+        print(f"[SystemStatus] Phase 2 check error: {e}")
+
+    # has_data is only true when ALL three pipelines have produced data
+    status["has_data"] = (
+        status["phase1_ready"]
+        and status["factsheets_ready"]
+        and status["definitions_ready"]
+    )
         
     return status
 
@@ -177,15 +183,15 @@ def system_refresh():
     """Triggers Phase 1 and Phase 2 Factsheets (Definitions triggered sequentially later)."""
     # Trigger Phase 1
     try:
-        requests.post(f"{PHASE1_BASE}/api/reviews/refresh", timeout=5)
-    except Exception:
-        pass
+        requests.post(f"{PHASE1_BASE}/api/reviews/refresh", timeout=8)
+    except Exception as e:
+        print(f"[SystemRefresh] Phase 1 trigger error: {e}")
         
     # Trigger Phase 2 Factsheets
     try:
-        requests.post(f"{PHASE2_BASE}/api/faqs/factsheets/refresh", timeout=5)
-    except Exception:
-        pass
+        requests.post(f"{PHASE2_BASE}/api/faqs/factsheets/refresh", timeout=8)
+    except Exception as e:
+        print(f"[SystemRefresh] Phase 2 Factsheets trigger error: {e}")
         
     return {"status": "refreshing"}
 
@@ -193,9 +199,9 @@ def system_refresh():
 def system_refresh_definitions():
     """Triggers Phase 2 Definitions sequentially."""
     try:
-        requests.post(f"{PHASE2_BASE}/api/faqs/definitions/refresh", timeout=5)
-    except Exception:
-        pass
+        requests.post(f"{PHASE2_BASE}/api/faqs/definitions/refresh", timeout=8)
+    except Exception as e:
+        print(f"[SystemRefresh] Phase 2 Definitions trigger error: {e}")
         
     return {"status": "refreshing_definitions"}
 

@@ -1,27 +1,186 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Sparkles, Server, CheckCircle2, RefreshCw, Layers } from "lucide-react";
+import React, { useState, useEffect, useRef } from 'react';
 
 const API_BASE = import.meta.env.DEV
   ? ''
   : (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8002').replace(/\/$/, '');
 
-async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, { ...options, signal: controller.signal });
-    return res;
+    return await fetch(url, { ...options, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }
 }
 
+const GREEN = '#22c55e';
+const GREEN_DIM = 'rgba(34,197,94,0.15)';
+const GREEN_BORDER = 'rgba(34,197,94,0.25)';
+
+const keyframes = `
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 0.7; }
+    50%       { opacity: 1; }
+  }
+  @keyframes dot-bounce {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-4px); }
+  }
+`;
+
+function SpinnerRing() {
+  return (
+    <div style={{
+      position: 'relative',
+      width: 128,
+      height: 128,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 40,
+    }}>
+      {/* Outer static ring */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        borderRadius: '50%',
+        border: '2px solid rgba(255,255,255,0.05)',
+      }} />
+      {/* Spinning arc */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        borderRadius: '50%',
+        border: '2px solid transparent',
+        borderTopColor: GREEN,
+        borderRightColor: GREEN,
+        animation: 'spin 1.2s linear infinite',
+      }} />
+      {/* Inner glowing circle */}
+      <div style={{
+        position: 'absolute',
+        inset: 8,
+        borderRadius: '50%',
+        background: GREEN_DIM,
+        border: `1px solid ${GREEN_BORDER}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        {/* Sparkle SVG */}
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={GREEN} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+          style={{ animation: 'pulse-glow 2s ease-in-out infinite' }}>
+          <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/>
+          <path d="M5 17l.75 2.25L8 20l-2.25.75L5 23l-.75-2.25L2 20l2.25-.75L5 17z"/>
+          <path d="M19 3l.5 1.5L21 5l-1.5.5L19 7l-.5-1.5L17 5l1.5-.5L19 3z"/>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function StatusCard({ step, statusText }) {
+  const isComplete = step >= 5;
+  return (
+    <div style={{
+      width: '100%',
+      background: 'rgba(255,255,255,0.02)',
+      border: '1px solid rgba(255,255,255,0.1)',
+      borderRadius: 16,
+      padding: '14px 18px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 16,
+      marginBottom: 28,
+    }}>
+      <div style={{
+        width: 46,
+        height: 46,
+        borderRadius: 12,
+        background: GREEN_DIM,
+        border: `1px solid ${GREEN_BORDER}`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        color: GREEN,
+      }}>
+        {isComplete ? (
+          /* Check icon */
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={GREEN} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        ) : step === 0 ? (
+          /* Server icon */
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={GREEN} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+            <line x1="6" y1="6" x2="6.01" y2="6"/>
+            <line x1="6" y1="18" x2="6.01" y2="18"/>
+          </svg>
+        ) : (
+          /* Spinning refresh icon */
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={GREEN} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ animation: 'spin 1.5s linear infinite' }}>
+            <polyline points="23 4 23 10 17 10"/>
+            <polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+        )}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'sans-serif', marginBottom: 3 }}>
+          Pipeline Status
+        </div>
+        <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, fontWeight: 500, fontFamily: 'sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {statusText}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProgressDots({ step, total = 5 }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      {Array.from({ length: total }).map((_, i) => (
+        <div key={i} style={{
+          height: 8,
+          borderRadius: 4,
+          transition: 'all 0.5s ease',
+          width: step === i ? 28 : 8,
+          background: step === i
+            ? GREEN
+            : step > i
+              ? 'rgba(34,197,94,0.4)'
+              : 'rgba(255,255,255,0.1)',
+          boxShadow: step === i ? `0 0 10px ${GREEN}80` : 'none',
+        }} />
+      ))}
+    </div>
+  );
+}
+
+const STEPS_TEXT = [
+  "Checking cluster status...",
+  "Waking up AI agents...",
+  "Classifying reviews & scraping factsheets...",
+  "Preparing to index definitions...",
+  "Indexing definition embeddings...",
+];
+
 export default function FullScreenLoader({ onComplete }) {
   const [step, setStep] = useState(0);
-  const [statusText, setStatusText] = useState("Checking cluster status...");
-  
-  const hasTriggeredRef = useRef(false);
-  const cooldownRef = useRef(false);
+  const [statusText, setStatusText] = useState(STEPS_TEXT[0]);
+
+  const hasTriggeredInitialRef = useRef(false);
+  const hasTriggeredDefinitionsRef = useRef(false);
+  const factsheetsDoneTimestampRef = useRef(null);
 
   useEffect(() => {
     let pollingInterval;
@@ -30,152 +189,188 @@ export default function FullScreenLoader({ onComplete }) {
       try {
         const res = await fetchWithTimeout(`${API_BASE}/api/system/status`);
         if (!res.ok) return;
-        
-        const status = await res.json();
-        
-        const allReady = status.has_data;
-        const anyRunning = status.is_running;
+        const s = await res.json();
 
-        // If everything is ready and nothing is running, we're done!
-        if (allReady && !anyRunning) {
-          if (pollingInterval) clearInterval(pollingInterval);
+        const {
+          has_data, is_running,
+          phase1_ready, phase1_running,
+          factsheets_ready, factsheets_running,
+          definitions_ready, definitions_running,
+        } = s;
+
+        // ✅ All done
+        if (has_data && !is_running) {
+          clearInterval(pollingInterval);
           onComplete();
           return;
         }
 
-        // Update UI Steps based on progress
-        if (!status.has_data && status.phase1_running && status.factsheets_running) {
-          setStep(1);
-          setStatusText("Processing 350+ reviews and scraping factsheets...");
-        } else if (!status.has_data && status.phase1_running) {
-          setStep(1);
-          setStatusText("Classifying app reviews using Groq LLM...");
-        } else if (!status.has_data && status.factsheets_running) {
-          setStep(2);
-          setStatusText("Generating factsheet embeddings via Gemini...");
-        } else if (status.has_data && !status.definitions_running && !cooldownRef.current) {
-          // Wait! If has_data is somehow true but we are doing a cooldown, the proxy handles factsheets vs definitions.
-          // The proxy says `has_data` is false until both fs and df have `last_refreshed`.
-        }
-        
-        // Let's refine the step logic based on the proxy response
-        if (!status.has_data && status.factsheets_running && status.phase1_running) {
-            setStep(1);
-            setStatusText("Processing 350+ reviews and scraping factsheets...");
-        } else if (!status.has_data && !status.factsheets_running && !status.definitions_running && hasTriggeredRef.current && !cooldownRef.current) {
-            // Factsheets might be done, but definitions not yet started because of the cooldown
-            setStep(3);
-            setStatusText("Factsheets complete. Preparing to index definitions...");
-        } else if (status.definitions_running) {
-            setStep(4);
-            setStatusText("Indexing definition embeddings...");
-        } else if (allReady && anyRunning) {
-            setStep(4);
-            setStatusText("Finalizing intelligence pipelines...");
-        }
-
-        // Trigger Pipelines if empty and not triggered yet
-        if (!hasTriggeredRef.current && !allReady && !anyRunning) {
-          hasTriggeredRef.current = true;
+        // 🔥 Nothing triggered yet — fire initial pipelines
+        if (!hasTriggeredInitialRef.current && !phase1_running && !factsheets_running && !phase1_ready && !factsheets_ready) {
+          hasTriggeredInitialRef.current = true;
           setStep(1);
           setStatusText("Waking up AI agents...");
-          
-          fetchWithTimeout(`${API_BASE}/api/system/refresh`, { method: "POST" }).catch(() => {});
+          fetchWithTimeout(`${API_BASE}/api/system/refresh`, { method: 'POST' }).catch(() => {});
+          return;
         }
 
-        // Trigger Definitions sequentially after 15s cooldown
-        // If factsheets is NOT running, and definitions is NOT running, and we HAVE triggered the initial refresh,
-        // and we haven't started the cooldown yet...
-        // Wait, how do we know factsheets finished? If factsheets_running is false, but we still don't have full data.
-        if (hasTriggeredRef.current && !status.factsheets_running && !status.definitions_running && !status.has_data && !cooldownRef.current) {
-          // It could be that the initial `/api/system/refresh` hasn't fully registered in the backend yet,
-          // so `factsheets_running` is still false for a split second. We should wait at least 5 seconds before assuming it finished.
-          // For simplicity, if we triggered it, and it's not running, we start the 15s cooldown.
-          cooldownRef.current = true;
-          setStep(3);
-          setStatusText("Preparing to index definitions...");
-          
-          setTimeout(() => {
-            fetchWithTimeout(`${API_BASE}/api/system/refresh/definitions`, { method: "POST" }).catch(() => {});
-          }, 15000);
+        // 📊 Update step label
+        if (definitions_running) {
+          setStep(4);
+          setStatusText("Indexing definition embeddings...");
+        } else if (phase1_running && factsheets_running) {
+          setStep(2);
+          setStatusText("Classifying 350+ reviews & scraping factsheets...");
+        } else if (phase1_running) {
+          setStep(2);
+          setStatusText("Classifying app reviews using Groq LLM...");
+        } else if (factsheets_running) {
+          setStep(2);
+          setStatusText("Generating factsheet embeddings via Gemini...");
         }
 
+        // ⏳ Factsheets done — 15s cooldown before triggering definitions
+        if (factsheets_ready && !factsheets_running && !definitions_ready && !definitions_running && !hasTriggeredDefinitionsRef.current) {
+          if (factsheetsDoneTimestampRef.current === null) {
+            factsheetsDoneTimestampRef.current = Date.now();
+            setStep(3);
+            setStatusText("Preparing to index definitions...");
+          } else if (Date.now() - factsheetsDoneTimestampRef.current >= 15000) {
+            hasTriggeredDefinitionsRef.current = true;
+            fetchWithTimeout(`${API_BASE}/api/system/refresh/definitions`, { method: 'POST' }).catch(() => {});
+            setStep(4);
+            setStatusText("Indexing definition embeddings...");
+          }
+        }
       } catch (err) {
-        console.error("Global loader status check failed", err);
+        console.error('[FullScreenLoader] Status check failed:', err);
       }
     };
 
     checkStatus();
     pollingInterval = setInterval(checkStatus, 5000);
-
     return () => clearInterval(pollingInterval);
   }, [onComplete]);
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-[#0A0A0A] flex flex-col items-center justify-center overflow-hidden">
-      {/* Background Grid & Glow */}
-      <div 
-        style={{
-            backgroundImage: `linear-gradient(to right, #ffffff05 1px, transparent 1px), linear-gradient(to bottom, #ffffff05 1px, transparent 1px)`,
-            backgroundSize: `4rem 4rem`,
-            maskImage: `radial-gradient(ellipse 60% 60% at 50% 50%, #000 70%, transparent 100%)`,
-            WebkitMaskImage: `radial-gradient(ellipse 60% 60% at 50% 50%, #000 70%, transparent 100%)`
-        }}
-        className="absolute inset-0" 
-      />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#00ff88]/10 rounded-full blur-[120px] opacity-50" />
+    <>
+      <style>{keyframes}</style>
+      <div style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        background: '#0A0A0A',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      }}>
+        {/* Radial grid background */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)',
+          backgroundSize: '60px 60px',
+          maskImage: 'radial-gradient(ellipse 70% 70% at 50% 50%, #000 60%, transparent 100%)',
+          WebkitMaskImage: 'radial-gradient(ellipse 70% 70% at 50% 50%, #000 60%, transparent 100%)',
+        }} />
 
-      <div className="relative z-10 flex flex-col items-center max-w-md w-full px-6">
-        {/* Brand Header */}
-        <div className="flex items-center gap-2 mb-16">
-          <Layers className="text-[#00ff88] w-5 h-5" />
-          <span className="text-white/80 font-semibold tracking-wide text-sm" style={{ fontFamily: 'sans-serif' }}>User Portal</span>
-        </div>
+        {/* Green glow blob */}
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 480,
+          height: 480,
+          background: 'rgba(34,197,94,0.07)',
+          borderRadius: '50%',
+          filter: 'blur(100px)',
+          pointerEvents: 'none',
+        }} />
 
-        {/* Central Spinner */}
-        <div className="relative w-32 h-32 mb-12 flex items-center justify-center">
-          <div className="absolute inset-0 rounded-full border-2 border-white/5" />
-          <div className="absolute inset-0 rounded-full border-2 border-t-[#00ff88] border-r-[#00ff88] border-b-transparent border-l-transparent animate-spin" />
-          <div className="absolute inset-2 rounded-full bg-[#00ff88]/5 backdrop-blur-sm border border-[#00ff88]/20 flex items-center justify-center">
-            <Sparkles className="text-[#00ff88] w-8 h-8 animate-pulse" strokeWidth={1.5} />
+        {/* Content */}
+        <div style={{
+          position: 'relative',
+          zIndex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          width: '100%',
+          maxWidth: 420,
+          padding: '0 24px',
+        }}>
+          {/* Brand row */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 48,
+          }}>
+            {/* Layers icon */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={GREEN} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+              <polyline points="2 17 12 22 22 17"/>
+              <polyline points="2 12 12 17 22 12"/>
+            </svg>
+            <span style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600, fontSize: 13, letterSpacing: '0.04em' }}>
+              User Portal
+            </span>
           </div>
-        </div>
 
-        {/* Typography */}
-        <div className="text-center mb-12" style={{ fontFamily: 'sans-serif' }}>
-          <div className="inline-block px-3 py-1 mb-4 rounded-full bg-[#00ff88]/10 border border-[#00ff88]/20 text-[#00ff88] text-[10px] font-black tracking-[0.2em] uppercase">
-            System Boot
-          </div>
-          <h1 className="text-3xl font-bold text-white mb-3 tracking-tight">INITIALIZING WORKSPACE</h1>
-          <p className="text-white/40 text-sm font-medium leading-relaxed max-w-sm mx-auto">
-            Waking up cluster. This may take 2-3 minutes after a cold start to scrape and vectorize fresh data.
-          </p>
-        </div>
+          {/* Spinner */}
+          <SpinnerRing />
 
-        {/* Status Card */}
-        <div className="w-full bg-white/[0.02] border border-white/10 backdrop-blur-xl rounded-2xl p-4 flex items-center gap-4 mb-8" style={{ fontFamily: 'sans-serif' }}>
-          <div className="w-12 h-12 rounded-xl bg-[#00ff88]/10 flex items-center justify-center text-[#00ff88] shrink-0">
-            {step === 0 ? <Server size={20} /> : step === 4 ? <CheckCircle2 size={20} /> : <RefreshCw size={20} className="animate-spin" />}
+          {/* Headline */}
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <div style={{
+              display: 'inline-block',
+              padding: '4px 12px',
+              borderRadius: 100,
+              background: GREEN_DIM,
+              border: `1px solid ${GREEN_BORDER}`,
+              color: GREEN,
+              fontSize: 10,
+              fontWeight: 800,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              marginBottom: 14,
+            }}>
+              System Boot
+            </div>
+            <h1 style={{
+              color: '#ffffff',
+              fontSize: 26,
+              fontWeight: 800,
+              letterSpacing: '-0.02em',
+              margin: '0 0 10px',
+              lineHeight: 1.2,
+            }}>
+              INITIALIZING WORKSPACE
+            </h1>
+            <p style={{
+              color: 'rgba(255,255,255,0.38)',
+              fontSize: 13,
+              fontWeight: 500,
+              lineHeight: 1.6,
+              margin: 0,
+              maxWidth: 320,
+              marginLeft: 'auto',
+              marginRight: 'auto',
+            }}>
+              Waking up cluster. This may take 2–3 minutes on a cold start to scrape and vectorize fresh data.
+            </p>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-white text-sm font-bold truncate">Pipeline Status</div>
-            <div className="text-white/50 text-xs font-medium truncate mt-0.5">{statusText}</div>
-          </div>
-        </div>
 
-        {/* Progress Dots */}
-        <div className="flex items-center gap-3">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className={`h-2 rounded-full transition-all duration-500 ${
-                step === i ? "w-8 bg-[#00ff88] shadow-[0_0_10px_rgba(0,255,136,0.5)]" : 
-                step > i ? "w-2 bg-[#00ff88]/50" : "w-2 bg-white/10"
-              }`}
-            />
-          ))}
+          {/* Status card */}
+          <StatusCard step={step} statusText={statusText} />
+
+          {/* Progress dots */}
+          <ProgressDots step={step} total={STEPS_TEXT.length} />
         </div>
       </div>
-    </div>
+    </>
   );
 }
