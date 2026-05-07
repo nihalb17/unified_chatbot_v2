@@ -97,7 +97,7 @@ export default function GlobalColdStartLoader({ children }: { children: React.Re
             factsheetsDoneTimestampRef.current = Date.now();
             setStep(3);
             setStatusText("Preparing to index definitions...");
-          } else if (Date.now() - factsheetsDoneTimestampRef.current >= 15000) {
+          } else if (Date.now() - factsheetsDoneTimestampRef.current >= 8000) {
             hasTriggeredDefinitionsRef.current = true;
             fetchWithTimeout(`${PHASE3_URL}/api/system/refresh/definitions`, { method: "POST" }).catch(() => {});
             setStep(4);
