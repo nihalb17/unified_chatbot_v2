@@ -13,14 +13,15 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "../../.env"))
 # Configure Clients
 groq_theme_client = Groq(api_key=os.getenv("GROQ_API_KEY_THEME_GENERATION"))
 
-# Gemini Keys for rotation (Classification & Tagging)
-gemini_keys = [
-    os.getenv("GEMINI_API_KEY_PHASE1_CLASS_1"),
-    os.getenv("GEMINI_API_KEY_PHASE1_CLASS_2"),
-    os.getenv("GEMINI_API_KEY_PHASE1_CLASS_3"),
-    os.getenv("GEMINI_API_KEY_PHASE1_CLASS_4")
+# Groq Keys for rotation (Classification & Tagging)
+groq_class_keys = [
+    os.getenv("GROQ_API_KEY_PHASE1_CLASS_1"),
+    os.getenv("GROQ_API_KEY_PHASE1_CLASS_2"),
+    os.getenv("GROQ_API_KEY_PHASE1_CLASS_3"),
+    os.getenv("GROQ_API_KEY_PHASE1_CLASS_4"),
+    os.getenv("GROQ_API_KEY_THEME_GENERATION") # Fallback to the main one if missing
 ]
-gemini_keys = [k for k in gemini_keys if k] # Filter out None or empty
+groq_class_keys = list(set([k for k in groq_class_keys if k])) # Filter out None and remove duplicates
 
 class Theme(BaseModel):
     theme_name: str
@@ -131,50 +132,43 @@ def classify_and_tag(reviews: List[NormalizedReview], themes: List[Theme]) -> Li
         {batch_text}
         """
         
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "response_mime_type": "application/json"
-            }
-        }
-        
         max_retries = 5
         for attempt in range(max_retries):
             try:
                 # Rotate key based on batch index and attempt
-                key_index = (index + attempt) % len(gemini_keys)
-                api_key = gemini_keys[key_index]
+                key_index = (index + attempt) % len(groq_class_keys)
+                api_key = groq_class_keys[key_index]
                 
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-                req = urllib.request.Request(
-                    url, 
-                    data=json.dumps(payload).encode('utf-8'), 
-                    headers={'Content-Type': 'application/json'}
+                client = Groq(api_key=api_key)
+                chat_completion = client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model="llama-3.3-70b-versatile",
+                    response_format={"type": "json_object"},
+                    temperature=0
                 )
                 
-                with urllib.request.urlopen(req) as response:
-                    res_body = response.read()
-                    res_json = json.loads(res_body)
+                content_text = chat_completion.choices[0].message.content
+                analysis_map = json.loads(content_text)
+                
+                # Handle nested "reviews" key if the LLM returned it that way
+                if "reviews" in analysis_map and isinstance(analysis_map["reviews"], dict):
+                    analysis_map = analysis_map["reviews"]
                     
-                    content_text = res_json['candidates'][0]['content']['parts'][0]['text']
-                    analysis_map = json.loads(content_text)
-                    analysis_map = analysis_map.get("reviews", analysis_map)
-                    
-                    batch_results = []
-                    for r in batch:
-                        # Handle both string and int ID keys just in case
-                        analysis = analysis_map.get(str(r.review_id), analysis_map.get(r.review_id, {"theme": "Other", "sentiment": "neutral"}))
-                        batch_results.append({
-                            **r.dict(),
-                            "theme": analysis.get("theme", "Other"),
-                            "sentiment": analysis.get("sentiment", "neutral")
-                        })
-                    
-                    print(f"[ok] Batch {index} processed successfully (using Key {key_index + 1})")
-                    return batch_results
+                batch_results = []
+                for r in batch:
+                    # Handle both string and int ID keys just in case
+                    analysis = analysis_map.get(str(r.review_id), analysis_map.get(r.review_id, {"theme": "Other", "sentiment": "neutral"}))
+                    batch_results.append({
+                        **r.dict(),
+                        "theme": analysis.get("theme", "Other"),
+                        "sentiment": analysis.get("sentiment", "neutral")
+                    })
+                
+                print(f"[ok] Batch {index} processed successfully (using Groq Key {key_index + 1})")
+                return batch_results
             except Exception as e:
                 print(f"Batch {index} attempt {attempt + 1} failed: {e}")
-                time.sleep(20) # Fixed 20-second delay before retry
+                time.sleep(15) # Wait before retry to cool down Groq rate limits
                 
         print(f"Batch {index} completely failed after {max_retries} retries.")
         return [{**r.dict(), "theme": "Other", "sentiment": "neutral"} for r in batch]
