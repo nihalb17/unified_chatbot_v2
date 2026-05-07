@@ -12,6 +12,8 @@ it back on every subsequent call to maintain conversation state.
 
 import os
 import uuid
+import asyncio
+import httpx
 import requests
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
@@ -112,16 +114,15 @@ def health():
 
 # ================================================================== #
 # System Status & Refresh Proxy (For Auto-Pilot Loader)              #
+# Background polling approach: avoids blocking on cold-starting        #
+# Render services (which can take 30-60s to wake up).                 #
 # ================================================================== #
 
-# Derive base service URLs from the existing Render env vars so we
-# don't need to add new variables to the Render dashboard.
-# REVIEW_AGENT_URL  e.g. https://groww-phase1-reviews.onrender.com/api/reviews/themes
-# FAQ_AGENT_URL     e.g. https://groww-phase2-rag.onrender.com/api/chat
+from urllib.parse import urlparse
+
 def _base_from_url(full_url: str, fallback: str) -> str:
     """Strip path/query from a full URL, leaving only scheme + host."""
     try:
-        from urllib.parse import urlparse
         p = urlparse(full_url)
         if p.scheme and p.netloc:
             return f"{p.scheme}://{p.netloc}"
@@ -139,92 +140,134 @@ PHASE2_BASE = _base_from_url(
     os.getenv("PHASE2_URL", "http://127.0.0.1:8001"),
 ).rstrip("/")
 
-@app.get("/api/system/status")
-def get_system_status():
-    """Pings Phase 1 and Phase 2 to determine if data exists and if pipelines are running."""
-    status = {
-        "has_data": False,
-        "is_running": False,
-        "phase1_ready": False,
-        "phase1_running": False,
-        "factsheets_ready": False,
-        "factsheets_running": False,
-        "definitions_ready": False,
-        "definitions_running": False,
-    }
-    
-    # Check Phase 1 (Reviews)
-    try:
-        r1 = requests.get(f"{PHASE1_BASE}/api/reviews/themes", timeout=8)
-        if r1.status_code == 200:
-            themes = r1.json().get("themes", [])
-            status["phase1_ready"] = len(themes) > 0
-            
-        r1_status = requests.get(f"{PHASE1_BASE}/api/reviews/status", timeout=8)
-        if r1_status.status_code == 200:
-            if r1_status.json().get("running"):
-                status["is_running"] = True
-                status["phase1_running"] = True
-    except Exception as e:
-        print(f"[SystemStatus] Phase 1 check error: {e}")
+print(f"[SystemProxy] Phase1 base: {PHASE1_BASE}")
+print(f"[SystemProxy] Phase2 base: {PHASE2_BASE}")
 
-    # Check Phase 2 (Factsheets & Definitions)
+# In-memory cache — updated every 20s by the background loop
+_status_cache: dict = {
+    "has_data": False,
+    "is_running": False,
+    "phase1_ready": False,
+    "phase1_running": False,
+    "factsheets_ready": False,
+    "factsheets_running": False,
+    "definitions_ready": False,
+    "definitions_running": False,
+}
+
+async def _fetch_phase1_status(client: httpx.AsyncClient) -> dict:
+    """Async check of Phase 1 (Reviews)."""
+    result = {"phase1_ready": False, "phase1_running": False}
     try:
-        r2 = requests.get(f"{PHASE2_BASE}/api/faqs/status", timeout=8)
-        if r2.status_code == 200:
-            data = r2.json()
+        r = await client.get(f"{PHASE1_BASE}/api/reviews/themes")
+        if r.status_code == 200:
+            themes = r.json().get("themes", [])
+            result["phase1_ready"] = len(themes) > 0
+    except Exception as e:
+        print(f"[SystemStatus] Phase 1 themes error: {type(e).__name__}")
+    try:
+        rs = await client.get(f"{PHASE1_BASE}/api/reviews/status")
+        if rs.status_code == 200:
+            result["phase1_running"] = bool(rs.json().get("running"))
+    except Exception as e:
+        print(f"[SystemStatus] Phase 1 status error: {type(e).__name__}")
+    return result
+
+async def _fetch_phase2_status(client: httpx.AsyncClient) -> dict:
+    """Async check of Phase 2 (Factsheets + Definitions)."""
+    result = {
+        "factsheets_ready": False, "factsheets_running": False,
+        "definitions_ready": False, "definitions_running": False,
+    }
+    try:
+        r = await client.get(f"{PHASE2_BASE}/api/faqs/status")
+        if r.status_code == 200:
+            data = r.json()
             fs = data.get("factsheets", {})
             df = data.get("definitions", {})
-            
-            status["factsheets_ready"] = bool(fs.get("last_refreshed"))
-            status["definitions_ready"] = bool(df.get("last_refreshed"))
-                
-            if fs.get("running"):
-                status["is_running"] = True
-                status["factsheets_running"] = True
-                
-            if df.get("running"):
-                status["is_running"] = True
-                status["definitions_running"] = True
+            result["factsheets_ready"] = bool(fs.get("last_refreshed"))
+            result["factsheets_running"] = bool(fs.get("running"))
+            result["definitions_ready"] = bool(df.get("last_refreshed"))
+            result["definitions_running"] = bool(df.get("running"))
         else:
-            print(f"[SystemStatus] Phase 2 returned HTTP {r2.status_code}")
+            print(f"[SystemStatus] Phase 2 returned HTTP {r.status_code}")
     except Exception as e:
-        print(f"[SystemStatus] Phase 2 check error: {e}")
+        print(f"[SystemStatus] Phase 2 error: {type(e).__name__}")
+    return result
 
-    # has_data is only true when ALL three pipelines have produced data
-    status["has_data"] = (
-        status["phase1_ready"]
-        and status["factsheets_ready"]
-        and status["definitions_ready"]
+async def _update_status_cache():
+    """Poll both phases concurrently and update the in-memory cache."""
+    global _status_cache
+    # 90s timeout: enough for a cold Render instance to wake up
+    async with httpx.AsyncClient(timeout=90.0) as client:
+        p1, p2 = await asyncio.gather(
+            _fetch_phase1_status(client),
+            _fetch_phase2_status(client),
+        )
+    merged = {**p1, **p2}
+    merged["is_running"] = (
+        merged["phase1_running"]
+        or merged["factsheets_running"]
+        or merged["definitions_running"]
     )
-        
-    return status
+    merged["has_data"] = (
+        merged["phase1_ready"]
+        and merged["factsheets_ready"]
+        and merged["definitions_ready"]
+    )
+    _status_cache = merged
+    print(f"[SystemStatus] Cache updated: {merged}")
+
+async def _background_status_loop():
+    """Continuously refresh the status cache every 20 seconds."""
+    while True:
+        try:
+            await _update_status_cache()
+        except Exception as e:
+            print(f"[SystemStatus] Background loop error: {e}")
+        await asyncio.sleep(20)
+
+@app.on_event("startup")
+async def start_background_status_loop():
+    """Launch the background status polling loop on app startup."""
+    asyncio.create_task(_background_status_loop())
+    print("[SystemStatus] Background polling loop started.")
+
+@app.get("/api/system/status")
+def get_system_status():
+    """Returns the cached system status — always responds instantly."""
+    return _status_cache
 
 @app.post("/api/system/refresh")
-def system_refresh():
-    """Triggers Phase 1 and Phase 2 Factsheets (Definitions triggered sequentially later)."""
-    # Trigger Phase 1
-    try:
-        requests.post(f"{PHASE1_BASE}/api/reviews/refresh", timeout=8)
-    except Exception as e:
-        print(f"[SystemRefresh] Phase 1 trigger error: {e}")
-        
-    # Trigger Phase 2 Factsheets
-    try:
-        requests.post(f"{PHASE2_BASE}/api/faqs/factsheets/refresh", timeout=8)
-    except Exception as e:
-        print(f"[SystemRefresh] Phase 2 Factsheets trigger error: {e}")
-        
+async def system_refresh():
+    """Triggers Phase 1 and Phase 2 Factsheets concurrently."""
+    async with httpx.AsyncClient(timeout=90.0) as client:
+        results = await asyncio.gather(
+            client.post(f"{PHASE1_BASE}/api/reviews/refresh"),
+            client.post(f"{PHASE2_BASE}/api/faqs/factsheets/refresh"),
+            return_exceptions=True,
+        )
+    for i, r in enumerate(results):
+        if isinstance(r, Exception):
+            label = "Phase 1" if i == 0 else "Phase 2 Factsheets"
+            print(f"[SystemRefresh] {label} trigger error: {type(r).__name__}")
+        else:
+            label = "Phase 1" if i == 0 else "Phase 2 Factsheets"
+            print(f"[SystemRefresh] {label} triggered: HTTP {r.status_code}")
+    # Force an immediate cache refresh after triggering
+    asyncio.create_task(_update_status_cache())
     return {"status": "refreshing"}
 
 @app.post("/api/system/refresh/definitions")
-def system_refresh_definitions():
-    """Triggers Phase 2 Definitions sequentially."""
-    try:
-        requests.post(f"{PHASE2_BASE}/api/faqs/definitions/refresh", timeout=8)
-    except Exception as e:
-        print(f"[SystemRefresh] Phase 2 Definitions trigger error: {e}")
-        
+async def system_refresh_definitions():
+    """Triggers Phase 2 Definitions."""
+    async with httpx.AsyncClient(timeout=90.0) as client:
+        try:
+            r = await client.post(f"{PHASE2_BASE}/api/faqs/definitions/refresh")
+            print(f"[SystemRefresh] Definitions triggered: HTTP {r.status_code}")
+        except Exception as e:
+            print(f"[SystemRefresh] Definitions trigger error: {type(e).__name__}")
+    asyncio.create_task(_update_status_cache())
     return {"status": "refreshing_definitions"}
 
 
