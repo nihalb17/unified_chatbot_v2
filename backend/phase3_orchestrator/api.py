@@ -288,6 +288,8 @@ async def system_refresh():
 @app.post("/api/system/refresh/definitions")
 async def system_refresh_definitions():
     """Triggers Phase 2 Definitions."""
+    global _initial_refresh_triggered
+    _initial_refresh_triggered = True
     async with httpx.AsyncClient(timeout=90.0) as client:
         try:
             r = await client.post(f"{PHASE2_BASE}/api/faqs/definitions/refresh")
