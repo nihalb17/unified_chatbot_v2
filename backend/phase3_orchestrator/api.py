@@ -114,8 +114,30 @@ def health():
 # System Status & Refresh Proxy (For Auto-Pilot Loader)              #
 # ================================================================== #
 
-PHASE1_BASE = os.getenv("PHASE1_URL", "http://127.0.0.1:8000").rstrip("/")
-PHASE2_BASE = os.getenv("PHASE2_URL", "http://127.0.0.1:8001").rstrip("/")
+# Derive base service URLs from the existing Render env vars so we
+# don't need to add new variables to the Render dashboard.
+# REVIEW_AGENT_URL  e.g. https://groww-phase1-reviews.onrender.com/api/reviews/themes
+# FAQ_AGENT_URL     e.g. https://groww-phase2-rag.onrender.com/api/chat
+def _base_from_url(full_url: str, fallback: str) -> str:
+    """Strip path/query from a full URL, leaving only scheme + host."""
+    try:
+        from urllib.parse import urlparse
+        p = urlparse(full_url)
+        if p.scheme and p.netloc:
+            return f"{p.scheme}://{p.netloc}"
+    except Exception:
+        pass
+    return fallback
+
+PHASE1_BASE = _base_from_url(
+    os.getenv("REVIEW_AGENT_URL", ""),
+    os.getenv("PHASE1_URL", "http://127.0.0.1:8000"),
+).rstrip("/")
+
+PHASE2_BASE = _base_from_url(
+    os.getenv("FAQ_AGENT_URL", ""),
+    os.getenv("PHASE2_URL", "http://127.0.0.1:8001"),
+).rstrip("/")
 
 @app.get("/api/system/status")
 def get_system_status():
