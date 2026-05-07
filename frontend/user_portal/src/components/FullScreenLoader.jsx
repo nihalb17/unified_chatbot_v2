@@ -195,7 +195,6 @@ export default function FullScreenLoader({ onComplete }) {
           has_data, is_running,
           cache_initialized,
           suggest_initial_refresh,
-          suggest_definitions_refresh,
           phase1_ready, phase1_running,
           factsheets_ready, factsheets_running,
           definitions_ready, definitions_running,
@@ -237,20 +236,10 @@ export default function FullScreenLoader({ onComplete }) {
         } else if (factsheets_running) {
           setStep(2);
           setStatusText("Generating factsheet embeddings via Gemini...");
-        }
-
-        // ⏳ Backend suggests definitions refresh (Sequential gap)
-        if (suggest_definitions_refresh && !hasTriggeredDefinitionsRef.current) {
-          if (factsheetsDoneTimestampRef.current === null) {
-            factsheetsDoneTimestampRef.current = Date.now();
-            setStep(3);
-            setStatusText("Preparing to index definitions...");
-          } else if (Date.now() - factsheetsDoneTimestampRef.current >= 8000) {
-            hasTriggeredDefinitionsRef.current = true;
-            fetchWithTimeout(`${API_BASE}/api/system/refresh/definitions`, { method: 'POST' }).catch(() => {});
-            setStep(4);
-            setStatusText("Indexing definition embeddings...");
-          }
+        } else if (factsheets_ready && !definitions_ready) {
+          // This covers the backend's 8s auto-sequence gap
+          setStep(3);
+          setStatusText("Preparing to index definitions...");
         }
       } catch (err) {
         console.error('[FullScreenLoader] Status check failed:', err);

@@ -158,8 +158,9 @@ print(f"[SystemProxy] Phase2 base: {PHASE2_BASE}")
 # In-memory session tracking — resets on every backend boot
 _initial_refresh_triggered = False
 _definitions_refresh_triggered = False
+_auto_sequence_started = False  # Prevents duplicate auto-triggers
 
-# In-memory cache — updated every 20s by the background loop
+# In-memory cache — updated every 10s by the background loop
 _status_cache: dict = {
     "cache_initialized": False,
     "has_data": False,
@@ -169,10 +170,10 @@ _status_cache: dict = {
     "factsheets_ready": False,
     "definitions_running": False,
     "suggest_initial_refresh": False,
-    "suggest_definitions_refresh": False,
     "debug_session": {
-        "initial_triggered": False,
-        "definitions_triggered": False
+        "initial_triggered": _initial_refresh_triggered,
+        "definitions_triggered": _definitions_refresh_triggered,
+        "auto_sequence_started": _auto_sequence_started
     }
 }
 
@@ -247,30 +248,42 @@ async def _update_status_cache():
         and _definitions_refresh_triggered  # Ensure full sequence completion
     )
 
-    # Trigger control for frontend — stops the refresh loop
+    # Trigger control for frontend
     merged["suggest_initial_refresh"] = (
         not _initial_refresh_triggered 
         and not merged["is_running"]
     )
     
-    # We can trigger definitions as soon as factsheets are ready/stopped, 
-    # even if Phase 1 is still working.
-    merged["suggest_definitions_refresh"] = (
+    # --- AUTO-SEQUENCE LOGIC ---
+    # If factsheets just finished and we haven't started definitions yet,
+    # trigger the 8s delay and auto-run definitions.
+    global _auto_sequence_started
+    if (
         _initial_refresh_triggered 
         and not _definitions_refresh_triggered 
+        and not _auto_sequence_started
         and merged["factsheets_ready"] 
         and not merged["factsheets_running"]
-        and not merged["definitions_running"]
-    )
+    ):
+        _auto_sequence_started = True
+        print("[SystemStatus] Factsheets detected as complete. Starting 8s auto-sequence for Definitions...")
+        
+        async def delayed_trigger():
+            await asyncio.sleep(8)
+            print("[SystemStatus] 8s delay finished. Auto-triggering Definitions...")
+            await system_refresh_definitions()
+            
+        asyncio.create_task(delayed_trigger())
 
     merged["debug_session"] = {
         "initial_triggered": _initial_refresh_triggered,
-        "definitions_triggered": _definitions_refresh_triggered
+        "definitions_triggered": _definitions_refresh_triggered,
+        "auto_sequence_started": _auto_sequence_started
     }
 
     merged["cache_initialized"] = True  # Mark that at least one real check has completed
     _status_cache = merged
-    print(f"[SystemStatus] Cache updated. has_data={merged['has_data']}, is_running={merged['is_running']}, init_trig={_initial_refresh_triggered}, def_trig={_definitions_refresh_triggered}")
+    print(f"[SystemStatus] Cache updated. has_data={merged['has_data']}, is_running={merged['is_running']}, init_trig={_initial_refresh_triggered}, def_trig={_definitions_refresh_triggered}, auto_seq={_auto_sequence_started}")
 
 async def _background_status_loop():
     """Continuously refresh the status cache every 20 seconds."""
@@ -295,9 +308,10 @@ def get_system_status():
 @app.post("/api/system/refresh")
 async def system_refresh():
     """Triggers Phase 1 and Phase 2 Factsheets concurrently."""
-    global _initial_refresh_triggered, _definitions_refresh_triggered
+    global _initial_refresh_triggered, _definitions_refresh_triggered, _auto_sequence_started
     _initial_refresh_triggered = True
     _definitions_refresh_triggered = False # Reset for the new sequence
+    _auto_sequence_started = False         # Reset auto-trigger state
     
     async with httpx.AsyncClient(timeout=90.0) as client:
         results = await asyncio.gather(

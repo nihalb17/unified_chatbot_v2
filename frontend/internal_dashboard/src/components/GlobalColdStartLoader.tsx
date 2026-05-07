@@ -49,7 +49,6 @@ export default function GlobalColdStartLoader({ children }: { children: React.Re
           has_data,
           is_running,
           suggest_initial_refresh,
-          suggest_definitions_refresh,
           phase1_ready, phase1_running,
           factsheets_ready, factsheets_running,
           definitions_ready, definitions_running,
@@ -77,32 +76,22 @@ export default function GlobalColdStartLoader({ children }: { children: React.Re
         }
 
         // 📊 Update UI based on current state
-        if (phase1_running && factsheets_running) {
-          setStep(2);
-          setStatusText("Classifying 350+ reviews & scraping factsheets...");
-        } else if (phase1_running && !factsheets_running) {
-          setStep(2);
-          setStatusText("Classifying app reviews using Groq LLM...");
-        } else if (!phase1_running && factsheets_running) {
-          setStep(2);
-          setStatusText("Generating factsheet embeddings via Gemini...");
-        } else if (definitions_running) {
+        if (definitions_running) {
           setStep(4);
           setStatusText("Indexing definition embeddings...");
-        }
-
-        // ⏳ Backend suggests definitions refresh (Sequential gap)
-        if (suggest_definitions_refresh && !hasTriggeredDefinitionsRef.current) {
-          if (factsheetsDoneTimestampRef.current === null) {
-            factsheetsDoneTimestampRef.current = Date.now();
-            setStep(3);
-            setStatusText("Preparing to index definitions...");
-          } else if (Date.now() - factsheetsDoneTimestampRef.current >= 8000) {
-            hasTriggeredDefinitionsRef.current = true;
-            fetchWithTimeout(`${PHASE3_URL}/api/system/refresh/definitions`, { method: "POST" }).catch(() => {});
-            setStep(4);
-            setStatusText("Indexing definition embeddings...");
-          }
+        } else if (phase1_running && factsheets_running) {
+          setStep(2);
+          setStatusText("Classifying 350+ reviews & scraping factsheets...");
+        } else if (phase1_running) {
+          setStep(2);
+          setStatusText("Classifying app reviews using Groq LLM...");
+        } else if (factsheets_running) {
+          setStep(2);
+          setStatusText("Generating factsheet embeddings via Gemini...");
+        } else if (factsheets_ready && !definitions_ready) {
+          // This covers the backend's 8s auto-sequence gap
+          setStep(3);
+          setStatusText("Preparing to index definitions...");
         }
 
       } catch (err) {
