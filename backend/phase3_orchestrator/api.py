@@ -12,6 +12,7 @@ it back on every subsequent call to maintain conversation state.
 
 import os
 import uuid
+import requests
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -107,6 +108,96 @@ async def voice_websocket_endpoint(websocket: WebSocket) -> None:
 def health():
     """Basic health check."""
     return {"status": "ok", "service": "phase3-orchestrator", "port": 8002}
+
+
+# ================================================================== #
+# System Status & Refresh Proxy (For Auto-Pilot Loader)              #
+# ================================================================== #
+
+PHASE1_BASE = os.getenv("PHASE1_URL", "http://127.0.0.1:8000").rstrip("/")
+PHASE2_BASE = os.getenv("PHASE2_URL", "http://127.0.0.1:8001").rstrip("/")
+
+@app.get("/api/system/status")
+def get_system_status():
+    """Pings Phase 1 and Phase 2 to determine if data exists and if pipelines are running."""
+    status = {
+        "has_data": True,
+        "is_running": False,
+        "factsheets_running": False,
+        "definitions_running": False,
+        "phase1_running": False
+    }
+    
+    # Check Phase 1 (Reviews)
+    try:
+        r1 = requests.get(f"{PHASE1_BASE}/api/reviews/themes", timeout=5)
+        if r1.status_code == 200:
+            themes = r1.json().get("themes", [])
+            if not themes:
+                status["has_data"] = False
+        else:
+            status["has_data"] = False
+            
+        r1_status = requests.get(f"{PHASE1_BASE}/api/reviews/status", timeout=5)
+        if r1_status.status_code == 200:
+            if r1_status.json().get("running"):
+                status["is_running"] = True
+                status["phase1_running"] = True
+    except Exception as e:
+        status["has_data"] = False
+
+    # Check Phase 2 (Factsheets & Definitions)
+    try:
+        r2 = requests.get(f"{PHASE2_BASE}/api/faqs/status", timeout=5)
+        if r2.status_code == 200:
+            data = r2.json()
+            fs = data.get("factsheets", {})
+            df = data.get("definitions", {})
+            
+            # If either lacks a last_refreshed timestamp, we don't have full data
+            if not fs.get("last_refreshed") or not df.get("last_refreshed"):
+                status["has_data"] = False
+                
+            if fs.get("running"):
+                status["is_running"] = True
+                status["factsheets_running"] = True
+                
+            if df.get("running"):
+                status["is_running"] = True
+                status["definitions_running"] = True
+        else:
+            status["has_data"] = False
+    except Exception as e:
+        status["has_data"] = False
+        
+    return status
+
+@app.post("/api/system/refresh")
+def system_refresh():
+    """Triggers Phase 1 and Phase 2 Factsheets (Definitions triggered sequentially later)."""
+    # Trigger Phase 1
+    try:
+        requests.post(f"{PHASE1_BASE}/api/reviews/refresh", timeout=5)
+    except Exception:
+        pass
+        
+    # Trigger Phase 2 Factsheets
+    try:
+        requests.post(f"{PHASE2_BASE}/api/faqs/factsheets/refresh", timeout=5)
+    except Exception:
+        pass
+        
+    return {"status": "refreshing"}
+
+@app.post("/api/system/refresh/definitions")
+def system_refresh_definitions():
+    """Triggers Phase 2 Definitions sequentially."""
+    try:
+        requests.post(f"{PHASE2_BASE}/api/faqs/definitions/refresh", timeout=5)
+    except Exception:
+        pass
+        
+    return {"status": "refreshing_definitions"}
 
 
 # ================================================================== #

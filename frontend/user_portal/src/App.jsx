@@ -20,6 +20,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import Chatbot from './components/Chatbot';
+import FullScreenLoader from './components/FullScreenLoader';
 import './index.css';
 
 const marketData = [
@@ -99,10 +100,15 @@ const footerLinks = {
 
 function App() {
   const [isDark, setIsDark] = useState(true);
+  const [isReady, setIsReady] = useState(false);
 
   const toggleTheme = () => {
     setIsDark(!isDark);
   };
+
+  if (!isReady) {
+    return <FullScreenLoader onComplete={() => setIsReady(true)} />;
+  }
 
   return (
     <div className={`app-container ${!isDark ? 'light' : ''}`}>
