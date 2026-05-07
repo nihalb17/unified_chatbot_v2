@@ -214,7 +214,7 @@ export default function FullScreenLoader({ onComplete }) {
         }
 
         // 🔥 Nothing triggered yet — fire initial pipelines
-        if (!hasTriggeredInitialRef.current && !phase1_running && !factsheets_running && !phase1_ready && !factsheets_ready) {
+        if (!hasTriggeredInitialRef.current && !has_data && !is_running) {
           hasTriggeredInitialRef.current = true;
           setStep(1);
           setStatusText("Waking up AI agents...");

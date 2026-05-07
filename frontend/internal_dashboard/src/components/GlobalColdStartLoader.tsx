@@ -66,7 +66,7 @@ export default function GlobalColdStartLoader({ children }: { children: React.Re
         }
 
         // 🔥 Nothing is triggered yet — trigger initial pipelines
-        if (!hasTriggeredInitialRef.current && !phase1_ready && !factsheets_ready && !phase1_running && !factsheets_running) {
+        if (!hasTriggeredInitialRef.current && !has_data && !is_running) {
           hasTriggeredInitialRef.current = true;
           setStep(1);
           setStatusText("Waking up AI agents...");
