@@ -157,6 +157,7 @@ print(f"[SystemProxy] Phase2 base: {PHASE2_BASE}")
 
 # In-memory session tracking — resets on every backend boot
 _initial_refresh_triggered = False
+_definitions_refresh_triggered = False
 
 # In-memory cache — updated every 20s by the background loop
 _status_cache: dict = {
@@ -228,15 +229,18 @@ async def _update_status_cache():
     )
     
     # If the pipelines are already running, we consider the refresh "triggered" for this session
-    global _initial_refresh_triggered
+    global _initial_refresh_triggered, _definitions_refresh_triggered
     if merged["is_running"]:
         _initial_refresh_triggered = True
+    if merged["definitions_running"]:
+        _definitions_refresh_triggered = True
 
     merged["has_data"] = (
         merged["phase1_ready"]
         and merged["factsheets_ready"]
         and merged["definitions_ready"]
-        and _initial_refresh_triggered  # Force at least one trigger/run per backend boot
+        and _initial_refresh_triggered
+        and _definitions_refresh_triggered  # Ensure full sequence completion
     )
     merged["cache_initialized"] = True  # Mark that at least one real check has completed
     _status_cache = merged
@@ -265,8 +269,9 @@ def get_system_status():
 @app.post("/api/system/refresh")
 async def system_refresh():
     """Triggers Phase 1 and Phase 2 Factsheets concurrently."""
-    global _initial_refresh_triggered
+    global _initial_refresh_triggered, _definitions_refresh_triggered
     _initial_refresh_triggered = True
+    _definitions_refresh_triggered = False # Reset for the new sequence
     
     async with httpx.AsyncClient(timeout=90.0) as client:
         results = await asyncio.gather(
