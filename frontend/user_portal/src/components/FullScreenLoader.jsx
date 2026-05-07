@@ -65,7 +65,7 @@ export default function FullScreenLoader({ onComplete }) {
         } else if (!status.has_data && !status.factsheets_running && !status.definitions_running && hasTriggeredRef.current && !cooldownRef.current) {
             // Factsheets might be done, but definitions not yet started because of the cooldown
             setStep(3);
-            setStatusText("Factsheets complete. Cooling down for 15s...");
+            setStatusText("Factsheets complete. Preparing to index definitions...");
         } else if (status.definitions_running) {
             setStep(4);
             setStatusText("Indexing definition embeddings...");
@@ -93,7 +93,7 @@ export default function FullScreenLoader({ onComplete }) {
           // For simplicity, if we triggered it, and it's not running, we start the 15s cooldown.
           cooldownRef.current = true;
           setStep(3);
-          setStatusText("Cooling down API rate limits (15s)...");
+          setStatusText("Preparing to index definitions...");
           
           setTimeout(() => {
             fetchWithTimeout(`${API_BASE}/api/system/refresh/definitions`, { method: "POST" }).catch(() => {});

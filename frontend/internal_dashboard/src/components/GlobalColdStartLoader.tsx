@@ -91,7 +91,7 @@ export default function GlobalColdStartLoader({ children }: { children: React.Re
           setStatusText("Generating factsheet embeddings via Gemini...");
         } else if (phase1Ready && phase2FsReady && !phase2DfRunning && !phase2DfReady && !cooldownRef.current) {
           setStep(3);
-          setStatusText("Factsheets complete. Cooling down for 15s...");
+          setStatusText("Factsheets complete. Preparing to index definitions...");
         } else if (phase2DfRunning) {
           setStep(4);
           setStatusText("Indexing definition embeddings...");
@@ -118,7 +118,7 @@ export default function GlobalColdStartLoader({ children }: { children: React.Re
         if (hasTriggeredRef.current && phase2FsReady && !phase2FsRunning && !phase2DfReady && !phase2DfRunning && !cooldownRef.current) {
           cooldownRef.current = true;
           setStep(3);
-          setStatusText("Cooling down API rate limits (15s)...");
+          setStatusText("Preparing to index definitions...");
           
           setTimeout(() => {
             fetchWithTimeout(`${PHASE2_URL}/api/faqs/definitions/refresh`, { method: "POST" }).catch(() => {});
