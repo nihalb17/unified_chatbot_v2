@@ -167,11 +167,13 @@ _status_cache: dict = {
     "phase1_ready": False,
     "phase1_running": False,
     "factsheets_ready": False,
-    "factsheets_running": False,
-    "definitions_ready": False,
     "definitions_running": False,
     "suggest_initial_refresh": False,
     "suggest_definitions_refresh": False,
+    "debug_session": {
+        "initial_triggered": False,
+        "definitions_triggered": False
+    }
 }
 
 async def _fetch_phase1_status(client: httpx.AsyncClient) -> dict:
@@ -250,16 +252,25 @@ async def _update_status_cache():
         not _initial_refresh_triggered 
         and not merged["is_running"]
     )
+    
+    # We can trigger definitions as soon as factsheets are ready/stopped, 
+    # even if Phase 1 is still working.
     merged["suggest_definitions_refresh"] = (
         _initial_refresh_triggered 
         and not _definitions_refresh_triggered 
         and merged["factsheets_ready"] 
-        and not merged["is_running"]
+        and not merged["factsheets_running"]
+        and not merged["definitions_running"]
     )
+
+    merged["debug_session"] = {
+        "initial_triggered": _initial_refresh_triggered,
+        "definitions_triggered": _definitions_refresh_triggered
+    }
 
     merged["cache_initialized"] = True  # Mark that at least one real check has completed
     _status_cache = merged
-    print(f"[SystemStatus] Cache updated: {merged}")
+    print(f"[SystemStatus] Cache updated. has_data={merged['has_data']}, is_running={merged['is_running']}, init_trig={_initial_refresh_triggered}, def_trig={_definitions_refresh_triggered}")
 
 async def _background_status_loop():
     """Continuously refresh the status cache every 20 seconds."""
