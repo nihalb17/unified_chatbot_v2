@@ -194,6 +194,8 @@ export default function FullScreenLoader({ onComplete }) {
         const {
           has_data, is_running,
           cache_initialized,
+          suggest_initial_refresh,
+          suggest_definitions_refresh,
           phase1_ready, phase1_running,
           factsheets_ready, factsheets_running,
           definitions_ready, definitions_running,
@@ -213,8 +215,8 @@ export default function FullScreenLoader({ onComplete }) {
           return;
         }
 
-        // 🔥 Nothing triggered yet — fire initial pipelines
-        if (!hasTriggeredInitialRef.current && !has_data && !is_running) {
+        // 🔥 Backend suggests initial refresh (Cold Start)
+        if (suggest_initial_refresh && !hasTriggeredInitialRef.current) {
           hasTriggeredInitialRef.current = true;
           setStep(1);
           setStatusText("Waking up AI agents...");
@@ -237,8 +239,8 @@ export default function FullScreenLoader({ onComplete }) {
           setStatusText("Generating factsheet embeddings via Gemini...");
         }
 
-        // ⏳ Factsheets done — 15s cooldown before triggering definitions
-        if (factsheets_ready && !factsheets_running && !definitions_ready && !definitions_running && !hasTriggeredDefinitionsRef.current) {
+        // ⏳ Backend suggests definitions refresh (Sequential gap)
+        if (suggest_definitions_refresh && !hasTriggeredDefinitionsRef.current) {
           if (factsheetsDoneTimestampRef.current === null) {
             factsheetsDoneTimestampRef.current = Date.now();
             setStep(3);

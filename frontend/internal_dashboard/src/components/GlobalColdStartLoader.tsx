@@ -48,6 +48,8 @@ export default function GlobalColdStartLoader({ children }: { children: React.Re
           cache_initialized,
           has_data,
           is_running,
+          suggest_initial_refresh,
+          suggest_definitions_refresh,
           phase1_ready, phase1_running,
           factsheets_ready, factsheets_running,
           definitions_ready, definitions_running,
@@ -65,8 +67,8 @@ export default function GlobalColdStartLoader({ children }: { children: React.Re
           return;
         }
 
-        // 🔥 Nothing is triggered yet — trigger initial pipelines
-        if (!hasTriggeredInitialRef.current && !has_data && !is_running) {
+        // 🔥 Backend suggests initial refresh (Cold Start)
+        if (suggest_initial_refresh && !hasTriggeredInitialRef.current) {
           hasTriggeredInitialRef.current = true;
           setStep(1);
           setStatusText("Waking up AI agents...");
@@ -89,8 +91,8 @@ export default function GlobalColdStartLoader({ children }: { children: React.Re
           setStatusText("Indexing definition embeddings...");
         }
 
-        // ⏳ Factsheets just finished — start 15s cooldown before definitions
-        if (factsheets_ready && !factsheets_running && !definitions_ready && !definitions_running && !hasTriggeredDefinitionsRef.current) {
+        // ⏳ Backend suggests definitions refresh (Sequential gap)
+        if (suggest_definitions_refresh && !hasTriggeredDefinitionsRef.current) {
           if (factsheetsDoneTimestampRef.current === null) {
             factsheetsDoneTimestampRef.current = Date.now();
             setStep(3);

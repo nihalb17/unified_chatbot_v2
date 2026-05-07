@@ -170,6 +170,8 @@ _status_cache: dict = {
     "factsheets_running": False,
     "definitions_ready": False,
     "definitions_running": False,
+    "suggest_initial_refresh": False,
+    "suggest_definitions_refresh": False,
 }
 
 async def _fetch_phase1_status(client: httpx.AsyncClient) -> dict:
@@ -242,6 +244,19 @@ async def _update_status_cache():
         and _initial_refresh_triggered
         and _definitions_refresh_triggered  # Ensure full sequence completion
     )
+
+    # Trigger control for frontend — stops the refresh loop
+    merged["suggest_initial_refresh"] = (
+        not _initial_refresh_triggered 
+        and not merged["is_running"]
+    )
+    merged["suggest_definitions_refresh"] = (
+        _initial_refresh_triggered 
+        and not _definitions_refresh_triggered 
+        and merged["factsheets_ready"] 
+        and not merged["is_running"]
+    )
+
     merged["cache_initialized"] = True  # Mark that at least one real check has completed
     _status_cache = merged
     print(f"[SystemStatus] Cache updated: {merged}")
