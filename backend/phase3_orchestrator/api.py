@@ -279,7 +279,7 @@ async def _background_status_loop():
             await _update_status_cache()
         except Exception as e:
             print(f"[SystemStatus] Background loop error: {e}")
-        await asyncio.sleep(20)
+        await asyncio.sleep(10)
 
 @app.on_event("startup")
 async def start_background_status_loop():
