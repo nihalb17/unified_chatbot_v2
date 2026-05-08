@@ -8,7 +8,7 @@ import {
   MessageSquare, 
   Calendar, 
   FileText, 
-  LogOut,
+  ArrowUpRight,
   SlidersHorizontal
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -60,11 +60,16 @@ export default function Sidebar() {
         </nav>
       </div>
       
-      <div className="mt-auto p-6 border-t border-white/5">
-        <div className="flex items-center gap-3 px-3 py-2 text-white/40 hover:text-white cursor-pointer transition-colors group">
-          <LogOut size={18} className="group-hover:text-white" />
-          <span className="text-sm font-medium">Logout</span>
-        </div>
+      <div className="mt-auto p-4 border-t border-white/5">
+        <a 
+          href="https://unified-chatbot-v2.vercel.app/" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-neon-green text-black font-bold text-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] group"
+        >
+          <span className="truncate">Investor Portal</span>
+          <ArrowUpRight size={18} strokeWidth={2.5} className="shrink-0" />
+        </a>
       </div>
     </div>
   );
