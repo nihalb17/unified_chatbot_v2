@@ -5,16 +5,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
   BarChart3, 
-  MessageSquare, 
+  Sparkles, 
   Calendar, 
   FileText, 
   ArrowUpRight,
+  MessageSquare,
   SlidersHorizontal
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const menuItems = [
-  { icon: MessageSquare, label: "Review Pulse", href: "/" },
+  { icon: Sparkles, label: "Review Pulse", href: "/" },
   { icon: FileText, label: "Mutual Fund FAQs", href: "/faqs" },
   { icon: Calendar, label: "Scheduled Appointments", href: "/appointments" },
   { icon: SlidersHorizontal, label: "Meeting Slot Configuration", href: "/holidays" },
