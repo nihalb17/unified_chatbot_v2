@@ -65,9 +65,12 @@ export default function Sidebar() {
           href="https://unified-chatbot-v2.vercel.app/" 
           target="_blank" 
           rel="noopener noreferrer"
-          className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-neon-green text-black font-bold text-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] group"
+          className="flex items-center gap-3 px-4 py-3 rounded-xl bg-neon-green text-black font-bold text-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] group"
         >
-          <span className="truncate">Investor Portal</span>
+          <div className="flex items-center gap-2 truncate">
+            <MessageSquare size={16} strokeWidth={2.5} className="shrink-0" />
+            <span>Investor Portal</span>
+          </div>
           <ArrowUpRight size={18} strokeWidth={2.5} className="shrink-0" />
         </a>
       </div>
