@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import ConfirmationModal from "@/components/ConfirmationModal";
 
 const API_BASE = process.env.NEXT_PUBLIC_PHASE2_URL || "http://localhost:8001";
 
@@ -100,6 +101,10 @@ export default function MutualFundFAQs() {
   const [defUrlInput, setDefUrlInput] = useState("");
   const [definitionRefreshing, setDefinitionRefreshing] = useState(false);
   const [definitionProgress, setDefinitionProgress] = useState<PipelineProgress[]>([]);
+
+  // ----- Confirmation Modals -----
+  const [showFactsheetConfirm, setShowFactsheetConfirm] = useState(false);
+  const [showDefinitionConfirm, setShowDefinitionConfirm] = useState(false);
 
   // ----- Page-level state -----
   const [pageLoading, setPageLoading] = useState(true);
@@ -383,12 +388,12 @@ export default function MutualFundFAQs() {
               </div>
             </div>
             <button
-              onClick={refreshFactsheets}
+              onClick={() => setShowFactsheetConfirm(true)}
               disabled={factsheetRefreshing || factsheetUrls.length === 0}
               className="flex items-center gap-2 bg-neon-green text-black px-4 py-2 rounded-lg font-bold text-xs hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw size={14} strokeWidth={3} className={cn(factsheetRefreshing && "animate-spin")} />
-              {factsheetRefreshing ? "Refreshing..." : "Refresh"}
+              {factsheetRefreshing ? "Updating..." : "Update"}
             </button>
           </div>
         </div>
@@ -517,12 +522,12 @@ export default function MutualFundFAQs() {
               </div>
             </div>
             <button
-              onClick={refreshDefinitions}
+              onClick={() => setShowDefinitionConfirm(true)}
               disabled={definitionRefreshing || definitionUrls.length === 0}
               className="flex items-center gap-2 bg-neon-green text-black px-4 py-2 rounded-lg font-bold text-xs hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw size={14} strokeWidth={3} className={cn(definitionRefreshing && "animate-spin")} />
-              {definitionRefreshing ? "Refreshing..." : "Refresh"}
+              {definitionRefreshing ? "Updating..." : "Update"}
             </button>
           </div>
         </div>
@@ -634,6 +639,21 @@ export default function MutualFundFAQs() {
           )}
         </AnimatePresence>
       </div>
+      {/* Confirmation Modals */}
+      <ConfirmationModal
+        isOpen={showFactsheetConfirm}
+        onClose={() => setShowFactsheetConfirm(false)}
+        onConfirm={refreshFactsheets}
+        title="Are you sure?"
+        message="This will update the knowledge base."
+      />
+      <ConfirmationModal
+        isOpen={showDefinitionConfirm}
+        onClose={() => setShowDefinitionConfirm(false)}
+        onConfirm={refreshDefinitions}
+        title="Are you sure?"
+        message="This will update the knowledge base."
+      />
     </div>
   );
 }

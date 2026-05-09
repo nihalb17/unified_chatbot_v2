@@ -41,6 +41,7 @@ const Chatbot = ({ isDark = true }) => {
   /** After switching to Voice, wait for first assistant (welcome) typewriter to finish before opening the voice WebSocket. */
   const [voiceConnectReady, setVoiceConnectReady] = useState(false);
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   const firstAssistantId = useMemo(() => {
     const m = messages.find((x) => x.role === 'assistant');
@@ -78,6 +79,17 @@ const Chatbot = ({ isDark = true }) => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isOpen]);
+
+  // Auto-focus input when chat opens or loading finishes
+  useEffect(() => {
+    if (isOpen && uiMode === 'chat' && !isLoading && !chatClosed) {
+      // Small timeout to ensure the element is rendered and interactive
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, uiMode, isLoading, chatClosed]);
 
   const toggleChat = () => {
     if (!isOpen) {
@@ -399,6 +411,7 @@ const Chatbot = ({ isDark = true }) => {
         ) : (
           <form className="chatbot-input-area" onSubmit={handleSendMessage}>
             <input
+              ref={inputRef}
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}

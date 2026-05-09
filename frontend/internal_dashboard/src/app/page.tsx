@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { RefreshCw, Play, Apple, Info, AlertCircle, CheckCircle2, ArrowUpRight, MessageSquare, Sparkles, Smartphone, Activity, X, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import ConfirmationModal from "@/components/ConfirmationModal";
 
 /** Fetch with a timeout so the browser never hangs waiting for a dead backend. */
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
@@ -46,6 +47,7 @@ export default function ReviewPulse() {
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedTheme, setSelectedTheme] = useState<Theme | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchData = async () => {
@@ -171,7 +173,7 @@ export default function ReviewPulse() {
             </div>
           </div>
           <button 
-            onClick={handleRefresh}
+            onClick={() => setShowConfirm(true)}
             disabled={refreshing || pipelineRunning}
             className="flex items-center gap-2 bg-neon-green text-black px-5 py-2.5 rounded-lg font-bold text-xs hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px] justify-center"
           >
@@ -264,6 +266,14 @@ export default function ReviewPulse() {
           />
         )}
       </AnimatePresence>
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={handleRefresh}
+        title="Are you sure?"
+        message="This will trigger the pipeline"
+      />
     </div>
   );
 }
