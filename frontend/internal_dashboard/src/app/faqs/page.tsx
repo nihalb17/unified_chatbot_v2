@@ -450,7 +450,7 @@ export default function MutualFundFAQs() {
                 </div>
                 <button
                   onClick={() => deleteFactsheetUrl(entry.url)}
-                  className="text-white/10 hover:text-[#ef4444] transition-colors opacity-0 group-hover:opacity-100 ml-3"
+                  className="text-white/50 hover:text-[#ef4444] transition-colors opacity-0 group-hover:opacity-100 ml-3"
                 >
                   <X size={16} />
                 </button>
@@ -591,7 +591,7 @@ export default function MutualFundFAQs() {
                 </div>
                 <button
                   onClick={() => deleteDefinitionUrl(entry.url)}
-                  className="text-white/10 hover:text-[#ef4444] transition-colors opacity-0 group-hover:opacity-100 ml-3"
+                  className="text-white/50 hover:text-[#ef4444] transition-colors opacity-0 group-hover:opacity-100 ml-3"
                 >
                   <X size={16} />
                 </button>
