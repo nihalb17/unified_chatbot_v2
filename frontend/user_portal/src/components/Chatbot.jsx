@@ -18,7 +18,7 @@ function newSessionId() {
 }
 
 const Chatbot = ({ isDark = true }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -91,29 +91,26 @@ const Chatbot = ({ isDark = true }) => {
     }
   }, [isOpen, uiMode, isLoading, chatClosed]);
 
-  const toggleChat = () => {
-    if (!isOpen) {
-      // Reset the chat window and clear the server-side session
-      setMessages([
-        {
-          id: 1,
-          role: 'assistant',
-          content: 'Hi, how can I help you?',
-          links: []
-        }
-      ]);
-      setInputValue('');
-      setIsLoading(false);
-      setSessionId(newSessionId());
-      setUiMode('chat');
-      setChatClosed(false);
-      setBookingCode(null);
-      setShowEmailForm(null);
-      setEmailInput('');
-      setEmailSending(false);
-      setEmailSent({});
-    }
-    setIsOpen(!isOpen);
+  const resetChat = () => {
+    // Reset the chat window and clear the server-side session
+    setMessages([
+      {
+        id: 1,
+        role: 'assistant',
+        content: 'Hi, how can I help you?',
+        links: []
+      }
+    ]);
+    setInputValue('');
+    setIsLoading(false);
+    setSessionId(newSessionId());
+    setUiMode('chat');
+    setChatClosed(false);
+    setBookingCode(null);
+    setShowEmailForm(null);
+    setEmailInput('');
+    setEmailSending(false);
+    setEmailSent({});
   };
 
   const handleSendMessage = async (e) => {
@@ -245,14 +242,11 @@ const Chatbot = ({ isDark = true }) => {
 
   return (
     <div className="chatbot-wrapper">
-      {isOpen && <div className="chatbot-backdrop" onClick={toggleChat} />}
+      {isOpen && <div className="chatbot-backdrop" />}
 
       <div className={`chatbot-window ${isOpen ? 'open' : ''} ${!isDark ? 'light' : ''}`}>
         <div className="chatbot-header">
           <div className="chatbot-header-left">
-            <button className="chatbot-back-btn" onClick={toggleChat}>
-              <X size={18} />
-            </button>
             <div className="chatbot-avatar-badge">
               <Bot size={18} />
             </div>
@@ -394,8 +388,8 @@ const Chatbot = ({ isDark = true }) => {
         {chatClosed ? (
           <div className="chatbot-session-ended">
             <div className="session-ended-text">Session ended</div>
-            <button className="session-ended-close-btn" onClick={toggleChat}>
-              Close
+            <button className="session-ended-close-btn" onClick={resetChat}>
+              New Chat
             </button>
           </div>
         ) : uiMode === 'voice' ? (
@@ -425,7 +419,7 @@ const Chatbot = ({ isDark = true }) => {
         )}
       </div>
 
-      <button className={`chatbot-fab ${isOpen ? 'hidden' : ''}`} onClick={toggleChat}>
+      <button className={`chatbot-fab hidden`} aria-hidden="true">
         <Sparkles size={24} />
       </button>
     </div>

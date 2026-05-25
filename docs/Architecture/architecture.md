@@ -156,7 +156,7 @@ Build the central Orchestrator Agent that serves as the single entry point for a
                     ┌──────────▼──┐   ┌───────▼──────┐  ┌───▼──────────────┐
                     │  Lane 1     │   │  Lane 2      │  │  Lane 3          │
                     │ Known Theme │   │ FAQ Intent   │  │ Booking Intent   │
-                    │ Direct reply│   │ → FAQ Agent  │  │ → Booking Agent  │
+                    │ Direct reply│   │ → FAQ Agent  │  │ → Booking Nodes  │
                     └─────────────┘   └──────────────┘  └──────────────────┘
 ```
 
@@ -172,7 +172,8 @@ Build the central Orchestrator Agent that serves as the single entry point for a
 
 #### Lane 3 — Booking Intent
 - User wants to talk to a human or schedule a call.
-- Orchestrator collects **date**, **time**, and **topic** (1–3 words), then routes to the **Booking Agent** (Phase 4).
+- Orchestrator collects **date**, **time**, and **topic** (1–3 words) via its own dedicated LangGraph nodes (`collect_booking_topic_node`, `collect_booking_datetime_node`).
+- Once all details are collected, the Orchestrator transitions to its **booking execution nodes** (Phase 4) within the same state machine.
 
 ### Escalation Rule
 
@@ -181,16 +182,16 @@ At **any point** during Lane 1 or Lane 2, if the user expresses dissatisfaction 
 1. Orchestrator detects the signal.
 2. Orchestrator collects date and time from the user.
 3. Orchestrator **auto-generates the topic** from the prior conversation context (1–3 words).
-4. Orchestrator redirects to Lane 3 (Booking Agent — Phase 4).
+4. Orchestrator transitions to its own booking nodes (Lane 3).
 
-> **Example**: User asks about exit load (Lane 2) → FAQ Agent answers → User says "this isn't helpful, can I talk to someone?" → Orchestrator auto-generates topic `"Exit load query"` → asks for date/time → routes to Booking Agent.
+> **Example**: User asks about exit load (Lane 2) → FAQ Agent answers → User says "this isn't helpful, can I talk to someone?" → Orchestrator auto-generates topic `"Exit load query"` → asks for date/time → transitions to booking nodes.
 
 ### Key Design Decisions
 
 - Phase 3 is the **integration layer** — it wires together the outputs of Phase 1 (Themes KB) and Phase 2 (FAQ Agent) into a single orchestrated flow.
 - The Orchestrator is the **only** agent that communicates with the user — all other agents are internal.
 - Conversation context is maintained by the Orchestrator so it can summarize prior discussion during an escalation.
-- Lane 3 routing is handled here, but the **execution** of the booking flow is in Phase 4.
+- Lane 3 routing is handled here, and the **execution** of the booking flow is also managed by the Orchestrator's own nodes (Phase 4) — there is no separate Booking Agent microservice.
 - Both Phase 1 and Phase 2 must be complete before Phase 3 can function end-to-end.
 
 ### Concurrent Frontend Work
@@ -203,30 +204,30 @@ At **any point** during Lane 1 or Lane 2, if the user expresses dissatisfaction 
 
 ### Objective
 
-Build the Booking Agent and its two sub-agents (Slot Check, Implementation) that handle the complete appointment scheduling flow — from availability verification to booking execution via MCP.
+Build the booking pipeline nodes within the Orchestrator's LangGraph state machine that handle the complete appointment scheduling flow — from availability verification to booking execution via MCP. There is no separate Booking Agent; the Orchestrator manages the entire flow through dedicated nodes.
 
-### Agents
+### Nodes
 
-| Agent | LLM | Role |
+| Node | LLM | Role |
 |---|---|---|
-| **Booking Agent** | **Gemini** | Coordinates the booking flow — receives date, time, topic from the Orchestrator and delegates to sub-agents. |
-| **Slot Check Agent** | **Gemini** | Verifies whether the requested slot is available using the Holidays KB and Google Calendar (via MCP). |
-| **Implementation Agent** | **Groq** | Executes the four booking actions — all via MCP. |
+| **collect_booking_topic_node** | — | Collects the 1–3 word topic from the user (or auto-generates from context during escalation). |
+| **collect_booking_datetime_node** | — | Collects the preferred date and time from the user. |
+| **execute_booking_node** | **Gemini** | Runs slot checking and, if available, executes the four booking actions via MCP. |
 
 ### Booking Flow
 
 ```
 Orchestrator (Lane 3)
         │
-        │  date, time, topic
+        │  collect topic → collect date/time
         ▼
-  Booking Agent (Gemini)
+  execute_booking_node (Gemini)
         │
-        ├── Step 1 ──▶ Slot Check Agent (Gemini)
+        ├── Step 1 ──▶ Slot Check
         │                 ├── Holidays KB (CSV)
         │                 └── Google Calendar (MCP) ──▶ "free" / "unavailable"
         │
-        └── Step 2 (if free) ──▶ Implementation Agent (Groq)
+        └── Step 2 (if free) ──▶ Implementation
                                     ├── Email notification (MCP)
                                     ├── Calendar event (MCP)
                                     ├── Sheet log (MCP)
@@ -236,7 +237,7 @@ Orchestrator (Lane 3)
   Confirmation → Orchestrator → User
 ```
 
-### Implementation Agent — Four MCP Actions
+### Implementation — Four MCP Actions
 
 | # | Action | External Service |
 |---|---|---|
@@ -249,14 +250,15 @@ Orchestrator (Lane 3)
 
 | Knowledge Base | Used By | Source |
 |---|---|---|
-| Holidays CSV | Slot Check Agent | Managed via Internal Dashboard (Phase 8) |
-| Google Calendar | Slot Check Agent | Live read via MCP |
+| Holidays CSV | execute_booking_node | Managed via Internal Dashboard (Phase 8) |
+| Google Calendar | execute_booking_node | Live read via MCP |
 
 ### Key Design Decisions
 
-- Booking **only proceeds** to the Implementation Agent if the Slot Check Agent reports the slot is free.
-- All four Implementation Agent actions use **MCP** (Model Context Protocol) to interact with external Google services.
+- Booking **only proceeds** to the implementation step if the slot check reports the slot is free.
+- All four implementation actions use **MCP** (Model Context Protocol) to interact with external Google services.
 - The master Google Sheet serves as the single source of truth for the Meetings section in the Internal Dashboard.
+- The entire booking flow runs as **nodes within the Orchestrator's state machine** — no separate agent or microservice is needed.
 
 ### Concurrent Frontend Work
 
@@ -441,9 +443,9 @@ A manual trigger for the ops team to bring the system up to date:
                                           │
 ┌─────────────────────────────────────────▼──────────────────────────────────────┐
 │  PHASE 4: Booking Pipeline                                                     │
-│  Booking Agent (Gemini)                                                        │
-│   ├── Slot Check Agent (Gemini) → Holidays KB + Calendar (MCP)                │
-│   └── Implementation Agent (Groq) → Email, Calendar, Sheet, Doc (MCP)         │
+│  Orchestrator Booking Nodes                                                     │
+│   ├── Slot Check → Holidays KB + Calendar (MCP)                                │
+│   └── Implementation → Email, Calendar, Sheet, Doc (MCP)                       │
 └─────────────────────────────────────────┬──────────────────────────────────────┘
                                           │
 ┌─────────────────────────────────────────▼──────────────────────────────────────┐
@@ -478,9 +480,7 @@ A manual trigger for the ops team to bring the system up to date:
 | Review Classification | **Gemini** |
 | FAQ Agent | **Gemini** |
 | Orchestrator Agent | **Groq** |
-| Booking Agent | **Gemini** |
-| Slot Check Agent | **Gemini** |
-| Implementation Agent | **Groq** |
+| Booking Execution Node | **Gemini** |
 | Voice STT | **Sarvam** |
 | Voice TTS | **Sarvam** |
 | Automated Scheduling | **GitHub Actions** |

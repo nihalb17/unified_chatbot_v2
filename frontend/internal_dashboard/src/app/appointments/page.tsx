@@ -296,9 +296,8 @@ export default function ScheduledAppointments() {
         </div>
       </div>
 
-      {/* View Toggle + Search + Filter */}
+      {/* View Toggle */}
       <div className="flex items-center gap-3">
-        {/* View Mode Toggle */}
         <div className="flex bg-[#111111] border border-white/5 rounded-lg overflow-hidden">
           <button
             onClick={() => setViewMode("list")}
@@ -325,48 +324,53 @@ export default function ScheduledAppointments() {
             Calendar
           </button>
         </div>
-
-        {/* Filter Tabs */}
-        <div className="flex bg-[#111111] border border-white/5 rounded-lg overflow-hidden">
-          <button
-            onClick={() => setFilter("upcoming")}
-            className={cn(
-              "px-4 py-2.5 text-xs font-bold transition-all",
-              filter === "upcoming"
-                ? "bg-white/10 text-white"
-                : "text-white/40 hover:text-white/70"
-            )}
-          >
-            Upcoming
-          </button>
-          <button
-            onClick={() => setFilter("all")}
-            className={cn(
-              "px-4 py-2.5 text-xs font-bold transition-all",
-              filter === "all"
-                ? "bg-white/10 text-white"
-                : "text-white/40 hover:text-white/70"
-            )}
-          >
-            All
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="flex-1 relative">
-          <Search
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20"
-          />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Search by booking code or topic..."
-            className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#22c55e]/50 transition-colors"
-          />
-        </div>
       </div>
+
+      {/* Filter Tabs + Search — only visible in List view */}
+      {viewMode === "list" && (
+        <div className="flex items-center gap-3">
+          {/* Filter Tabs */}
+          <div className="flex bg-[#111111] border border-white/5 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setFilter("upcoming")}
+              className={cn(
+                "px-4 py-2.5 text-xs font-bold transition-all",
+                filter === "upcoming"
+                  ? "bg-white/10 text-white"
+                  : "text-white/40 hover:text-white/70"
+              )}
+            >
+              Upcoming
+            </button>
+            <button
+              onClick={() => setFilter("all")}
+              className={cn(
+                "px-4 py-2.5 text-xs font-bold transition-all",
+                filter === "all"
+                  ? "bg-white/10 text-white"
+                  : "text-white/40 hover:text-white/70"
+              )}
+            >
+              All
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="flex-1 relative">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20"
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Search by booking code or topic..."
+              className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#22c55e]/50 transition-colors"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       {viewMode === "list" ? (
@@ -503,7 +507,7 @@ function AppointmentCard({ appointment: apt }: { appointment: Appointment }) {
 
         {apt.calendar_event_link && (
           <a
-            href={apt.calendar_event_link}
+            href="https://calendar.google.com/calendar/embed?src=nihal.barla17%40gmail.com&ctz=Asia%2FKolkata"
             target="_blank"
             rel="noopener noreferrer"
             title="Calendar event"
@@ -726,7 +730,7 @@ function CalendarView({
                       )}
                       {apt.calendar_event_link && (
                         <a
-                          href={apt.calendar_event_link}
+                          href="https://calendar.google.com/calendar/embed?src=nihal.barla17%40gmail.com&ctz=Asia%2FKolkata"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-sky-300 transition-colors hover:border-sky-400/50 hover:bg-sky-500/15"
