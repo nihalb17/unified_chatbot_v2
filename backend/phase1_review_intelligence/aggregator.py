@@ -56,15 +56,23 @@ def aggregate_results(classified_reviews: List[Dict[str, Any]], themes: List[The
             
         try:
             client = Groq(api_key=api_key)
-            chat_completion = client.chat.completions.create(
-                messages=[{"role": "user", "content": prompt}],
-                model="llama-3.3-70b-versatile",
-                response_format={"type": "json_object"},
-                temperature=0.2
-            )
-            
-            content_text = chat_completion.choices[0].message.content
-            actionable_items = json.loads(content_text)
+            models_to_try = ["openai/gpt-oss-120b", "llama-3.1-8b-instant"]
+            content_text = ""
+            for model in models_to_try:
+                try:
+                    chat_completion = client.chat.completions.create(
+                        messages=[{"role": "user", "content": prompt}],
+                        model=model,
+                        response_format={"type": "json_object"},
+                        temperature=0.2
+                    )
+                    content_text = chat_completion.choices[0].message.content
+                    if content_text:
+                        break
+                except Exception as m_err:
+                    print(f"Aggregator model {model} failed: {m_err}")
+                    continue
+            actionable_items = json.loads(content_text) if content_text else {}
             
             for stats in theme_stats:
                 if stats['theme_name'] in actionable_items:

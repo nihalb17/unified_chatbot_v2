@@ -58,13 +58,22 @@ def generate_themes(sample_reviews: List[NormalizedReview]) -> List[Theme]:
     {reviews_text}
     """
     
-    chat_completion = groq_theme_client.chat.completions.create(
-        messages=[{"role": "user", "content": prompt}],
-        model="llama-3.3-70b-versatile",
-        response_format={"type": "json_object"}
-    )
-    
-    content = chat_completion.choices[0].message.content
+    models_to_try = ["openai/gpt-oss-120b", "llama-3.1-8b-instant"]
+    content = ""
+    for model in models_to_try:
+        try:
+            chat_completion = groq_theme_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model=model,
+                response_format={"type": "json_object"}
+            )
+            content = chat_completion.choices[0].message.content
+            if content:
+                break
+        except Exception as e:
+            print(f"[generate_themes] Model {model} failed: {e}")
+            continue
+
     try:
         data = json.loads(content)
         
@@ -140,12 +149,24 @@ def classify_and_tag(reviews: List[NormalizedReview], themes: List[Theme]) -> Li
                 api_key = groq_class_keys[key_index]
                 
                 client = Groq(api_key=api_key)
-                chat_completion = client.chat.completions.create(
-                    messages=[{"role": "user", "content": prompt}],
-                    model="llama-3.3-70b-versatile",
-                    response_format={"type": "json_object"},
-                    temperature=0
-                )
+                models_to_try = ["openai/gpt-oss-120b", "llama-3.1-8b-instant"]
+                chat_completion = None
+                for model in models_to_try:
+                    try:
+                        chat_completion = client.chat.completions.create(
+                            messages=[{"role": "user", "content": prompt}],
+                            model=model,
+                            response_format={"type": "json_object"},
+                            temperature=0
+                        )
+                        if chat_completion:
+                            break
+                    except Exception as model_err:
+                        print(f"Batch {index} model {model} failed: {model_err}")
+                        continue
+                
+                if not chat_completion:
+                    raise RuntimeError("All model fallbacks failed for batch")
                 
                 content_text = chat_completion.choices[0].message.content
                 analysis_map = json.loads(content_text)

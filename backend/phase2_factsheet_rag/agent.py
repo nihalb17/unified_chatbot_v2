@@ -64,26 +64,30 @@ Conversation history:
 User Query: "{user_query}"
 """
     intent = {"is_vague": False, "scheme_name": None, "concepts": []}
+    models_to_try = ["openai/gpt-oss-120b", "llama-3.1-8b-instant"]
     for api_key in faq_keys:
         groq_client = groq.Groq(api_key=api_key)
-        try:
-            response = groq_client.chat.completions.create(
-                messages=[{"role": "user", "content": understanding_prompt}],
-                model=model_name,
-                temperature=0,
-            )
-            text = response.choices[0].message.content
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0]
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0]
-            intent = json.loads(text.strip())
-            break
-        except Exception as e:
-            if _is_groq_rate_limit_exc(e):
-                print("[FAQ Agent] Query understanding rate limited, trying fallback key...")
+        for model in models_to_try:
+            try:
+                response = groq_client.chat.completions.create(
+                    messages=[{"role": "user", "content": understanding_prompt}],
+                    model=model,
+                    temperature=0,
+                )
+                text = response.choices[0].message.content
+                if "```json" in text:
+                    text = text.split("```json")[1].split("```")[0]
+                elif "```" in text:
+                    text = text.split("```")[1].split("```")[0]
+                intent = json.loads(text.strip())
+                break
+            except Exception as e:
+                if _is_groq_rate_limit_exc(e):
+                    print(f"[FAQ Agent] Model {model} rate limited, trying next...")
+                    continue
+                print(f"[FAQ Agent] Failed query understanding on {model}: {e}")
                 continue
-            print(f"[FAQ Agent] Failed query understanding: {e}")
+        if intent.get("is_vague") is not False or intent.get("scheme_name") or intent.get("concepts"):
             break
 
     # --- STAGE 2: Decide Path ---
@@ -203,26 +207,26 @@ User Query: "{user_query}"
 """
 
     final_answer: str | None = None
+    models_to_try = ["openai/gpt-oss-120b", "llama-3.1-8b-instant"]
     for api_key in faq_keys:
         groq_client = groq.Groq(api_key=api_key)
-        try:
-            answer_response = groq_client.chat.completions.create(
-                messages=[{"role": "user", "content": generation_prompt}],
-                model=model_name,
-                temperature=0,
-            )
-            final_answer = answer_response.choices[0].message.content.strip()
-            break
-        except Exception as e:
-            if _is_groq_rate_limit_exc(e):
-                print("[FAQ Agent] Generation rate limited, trying fallback key...")
+        for model in models_to_try:
+            try:
+                answer_response = groq_client.chat.completions.create(
+                    messages=[{"role": "user", "content": generation_prompt}],
+                    model=model,
+                    temperature=0,
+                )
+                final_answer = answer_response.choices[0].message.content.strip()
+                break
+            except Exception as e:
+                if _is_groq_rate_limit_exc(e):
+                    print(f"[FAQ Agent] Generation rate limited on {model}, trying next...")
+                    continue
+                print(f"[FAQ Agent] Failed generation on {model}: {e}")
                 continue
-            print(f"[FAQ Agent] Failed generation: {e}")
-            return {
-                "type": "refuse",
-                "text": "I'm having trouble connecting to my knowledge base right now.",
-                "links": [],
-            }
+        if final_answer:
+            break
 
     if final_answer is None:
         return {

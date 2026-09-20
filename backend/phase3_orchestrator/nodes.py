@@ -63,10 +63,6 @@ def _orchestrator_groq_keys() -> list[str]:
 
 def _model_fallback_chain(model: str) -> list[str]:
     models_to_try = [model]
-    if model == "openai/gpt-oss-120b":
-        models_to_try.append("llama-3.3-70b-versatile")
-    elif model == "llama-3.3-70b-versatile":
-        models_to_try.append("llama-3.1-70b-versatile")
     if "llama-3.1-8b-instant" not in models_to_try:
         models_to_try.append("llama-3.1-8b-instant")
     return models_to_try
